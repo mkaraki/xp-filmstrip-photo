@@ -1,0 +1,10 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./fixtures:/app/fixtures
+    environment:
+      - PHOTO_ROOT=./fixtures
+      - PORT=8080

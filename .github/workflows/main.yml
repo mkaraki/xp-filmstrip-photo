@@ -1,0 +1,50 @@
+name: CI Build & Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Set up Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+
+    - name: Build Frontend
+      run: |
+        cd frontend
+        bun install
+        bun run build
+
+    - name: Build Backend
+      run: |
+        cd backend
+        cargo build --release
+
+    - name: Setup Fixtures
+      run: |
+        mkdir -p fixtures/Sample01
+        # Create a tiny image
+        echo "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==" | base64 -d > fixtures/Sample01/test.png
+
+    - name: Run Backend in background
+      run: |
+        cd backend
+        nohup cargo run --release &
+        sleep 10 # Wait for startup
+
+    - name: Run E2E Tests
+      run: |
+        cd frontend
+        bunx cypress run

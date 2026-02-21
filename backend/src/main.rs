@@ -1,0 +1,149 @@
+use std::sync::Arc;
+use axum::{
+    extract::State,
+    http::{header, Request, StatusCode},
+    response::{IntoResponse, Response},
+    Router,
+};
+use dotenv::dotenv;
+use std::env;
+use std::net::SocketAddr;
+use std::path::{Path as StdPath, PathBuf};
+use tower_http::cors::{Any, CorsLayer};
+use tower_http::services::ServeDir;
+
+mod api;
+mod image_handler;
+
+#[derive(Clone)]
+pub struct AppState {
+    pub photo_root: PathBuf,
+}
+
+#[tokio::main]
+async fn main() {
+    dotenv().ok();
+
+    let photo_root = env::var("PHOTO_ROOT").unwrap_or_else(|_| "./fixtures".to_string());
+    
+    // Create the fixtures dir if it doesn't exist for easy initial start
+    if !StdPath::new(&photo_root).exists() {
+        std::fs::create_dir_all(&photo_root).ok();
+    }
+    
+    let photo_root = PathBuf::from(photo_root).canonicalize().expect("Invalid PHOTO_ROOT");
+
+    let state = Arc::new(AppState {
+        photo_root,
+    });
+
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods(Any)
+        .allow_headers(Any);
+
+    let app = Router::new()
+        .nest("/.__api", api::router(state.clone()))
+        .nest_service("/_nuxt", ServeDir::new("../frontend/.output/public/_nuxt"))
+        // Serve specific static files if they exist
+        .fallback(handle_path)
+        .layer(cors)
+        .with_state(state);
+
+    let port = env::var("PORT").unwrap_or_else(|_| "8080".to_string());
+    let addr = format!("0.0.0.0:{}", port).parse::<SocketAddr>().unwrap();
+
+    println!("Listening on {}", addr);
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+async fn handle_path<B>(
+    State(state): State<Arc<AppState>>,
+    req: Request<B>,
+) -> impl IntoResponse {
+    let path_str = req.uri().path().trim_start_matches('/');
+    
+    // Basic security: if it starts with .__api but reached here, it's an error.
+    if path_str.starts_with(".__api") {
+        return StatusCode::NOT_FOUND.into_response();
+    }
+
+    // Check for favicon/robots in frontend build
+    if path_str == "favicon.ico" || path_str == "robots.txt" {
+         let static_path = PathBuf::from("../frontend/.output/public").join(path_str);
+         if let Ok(content) = tokio::fs::read(&static_path).await {
+             let mime = mime_guess::from_path(&static_path).first_or_octet_stream();
+             return (
+                 [(header::CONTENT_TYPE, mime.to_string())],
+                 content,
+             ).into_response();
+         }
+    }
+
+    let safe_path = match validate_path(&state.photo_root, path_str) {
+        Ok(p) => p,
+        Err(_) => return StatusCode::FORBIDDEN.into_response(),
+    };
+
+    if safe_path.is_file() {
+        // Serve file with correct MIME type
+        let mime = mime_guess::from_path(&safe_path).first_or_octet_stream();
+        match tokio::fs::read(&safe_path).await {
+            Ok(content) => (
+                [(header::CONTENT_TYPE, mime.to_string())],
+                content,
+            ).into_response(),
+            Err(_) => StatusCode::NOT_FOUND.into_response(),
+        }
+    } else {
+        // Serve Nuxt app
+        serve_nuxt_index().await
+    }
+}
+
+async fn serve_nuxt_index() -> Response {
+    // Check if dist/index.html exists (if we built it)
+    let index_paths = [
+        "../frontend/.output/public/index.html",
+        "./frontend/.output/public/index.html",
+        "./dist/index.html"
+    ];
+
+    for path in index_paths {
+        if let Ok(content) = tokio::fs::read(path).await {
+            return (
+                [(header::CONTENT_TYPE, "text/html")],
+                content,
+            ).into_response();
+        }
+    }
+    
+    "Nuxt app not built. Run `bun run generate` in frontend directory (and ensure .output/public/index.html exists).".into_response()
+}
+
+pub fn validate_path(root: &StdPath, sub_path: &str) -> Result<PathBuf, ()> {
+    let sub_path = percent_encoding::percent_decode_str(sub_path)
+        .decode_utf8()
+        .map_err(|_| ())?;
+    
+    let mut joined = root.to_path_buf();
+    for component in StdPath::new(sub_path.as_ref()).components() {
+        match component {
+            std::path::Component::Normal(c) => joined.push(c),
+            std::path::Component::ParentDir => {
+                if joined != root {
+                    joined.pop();
+                }
+            },
+            std::path::Component::RootDir | std::path::Component::CurDir => {},
+            _ => return Err(()),
+        }
+    }
+
+    if joined.starts_with(root) {
+        Ok(joined)
+    } else {
+        Err(())
+    }
+}

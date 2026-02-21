@@ -1,0 +1,17 @@
+{
+  "name": "Film Strip Viewer",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "Vue.volar",
+        "oven-sh.bun-vscode",
+        "cypress-io.cypress-vscode"
+      ]
+    }
+  },
+  "postCreateCommand": "apt-get update && apt-get install -y pkg-config libssl-dev"
+}
