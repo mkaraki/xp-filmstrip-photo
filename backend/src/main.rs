@@ -11,6 +11,7 @@ use std::net::SocketAddr;
 use std::path::{Path as StdPath, PathBuf};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::ServeDir;
+use httpdate::HttpDate;
 
 mod api;
 mod image_handler;
@@ -26,7 +27,6 @@ async fn main() {
 
     let photo_root = env::var("PHOTO_ROOT").unwrap_or_else(|_| "./fixtures".to_string());
     
-    // Create the fixtures dir if it doesn't exist for easy initial start
     if !StdPath::new(&photo_root).exists() {
         std::fs::create_dir_all(&photo_root).ok();
     }
@@ -45,7 +45,6 @@ async fn main() {
     let app = Router::new()
         .nest("/.__api", api::router(state.clone()))
         .nest_service("/_nuxt", ServeDir::new("../frontend/.output/public/_nuxt"))
-        // Serve specific static files if they exist
         .fallback(handle_path)
         .layer(cors)
         .with_state(state);
@@ -63,19 +62,21 @@ async fn handle_path<B>(
     req: Request<B>,
 ) -> impl IntoResponse {
     let path_str = req.uri().path().trim_start_matches('/');
+    let headers = req.headers();
     
-    // Basic security: if it starts with .__api but reached here, it's an error.
     if path_str.starts_with(".__api") {
         return StatusCode::NOT_FOUND.into_response();
     }
 
-    // Check for favicon/robots in frontend build
     if path_str == "favicon.ico" || path_str == "robots.txt" {
          let static_path = PathBuf::from("../frontend/.output/public").join(path_str);
          if let Ok(content) = tokio::fs::read(&static_path).await {
              let mime = mime_guess::from_path(&static_path).first_or_octet_stream();
              return (
-                 [(header::CONTENT_TYPE, mime.to_string())],
+                 [
+                     (header::CONTENT_TYPE, mime.to_string()),
+                     (header::CACHE_CONTROL, "public, max-age=86400".to_string()),
+                 ],
                  content,
              ).into_response();
          }
@@ -87,23 +88,38 @@ async fn handle_path<B>(
     };
 
     if safe_path.is_file() {
-        // Serve file with correct MIME type
-        let mime = mime_guess::from_path(&safe_path).first_or_octet_stream();
-        match tokio::fs::read(&safe_path).await {
-            Ok(content) => (
-                [(header::CONTENT_TYPE, mime.to_string())],
-                content,
-            ).into_response(),
+        match tokio::fs::metadata(&safe_path).await {
+            Ok(metadata) => {
+                let modified = metadata.modified().unwrap_or_else(|_| std::time::SystemTime::now());
+                let last_modified = HttpDate::from(modified).to_string();
+
+                if let Some(if_modified_since) = headers.get(header::IF_MODIFIED_SINCE) {
+                    if if_modified_since == last_modified.as_str() {
+                        return StatusCode::NOT_MODIFIED.into_response();
+                    }
+                }
+
+                let mime = mime_guess::from_path(&safe_path).first_or_octet_stream();
+                match tokio::fs::read(&safe_path).await {
+                    Ok(content) => (
+                        [
+                            (header::CONTENT_TYPE, mime.to_string()),
+                            (header::LAST_MODIFIED, last_modified),
+                            (header::CACHE_CONTROL, "public, max-age=3600".to_string()),
+                        ],
+                        content,
+                    ).into_response(),
+                    Err(_) => StatusCode::NOT_FOUND.into_response(),
+                }
+            }
             Err(_) => StatusCode::NOT_FOUND.into_response(),
         }
     } else {
-        // Serve Nuxt app
         serve_nuxt_index().await
     }
 }
 
 async fn serve_nuxt_index() -> Response {
-    // Check if dist/index.html exists (if we built it)
     let index_paths = [
         "../frontend/.output/public/index.html",
         "./frontend/.output/public/index.html",
@@ -119,7 +135,7 @@ async fn serve_nuxt_index() -> Response {
         }
     }
     
-    "Nuxt app not built. Run `bun run generate` in frontend directory (and ensure .output/public/index.html exists).".into_response()
+    "Nuxt app not built. Run `bun run generate` in frontend directory.".into_response()
 }
 
 pub fn validate_path(root: &StdPath, sub_path: &str) -> Result<PathBuf, ()> {

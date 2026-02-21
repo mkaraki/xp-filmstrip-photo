@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, State},
-    http::{header, StatusCode},
+    http::{header, HeaderMap, StatusCode},
     response::{IntoResponse},
 };
 use std::sync::Arc;
@@ -12,15 +12,18 @@ use fast_image_resize as fr;
 use sha2::{Sha256, Digest};
 use std::path::PathBuf;
 use tokio::fs;
+use httpdate::HttpDate;
 
 pub async fn get_thumbnail_root(
     state: State<Arc<AppState>>,
+    headers: HeaderMap,
 ) -> impl IntoResponse {
-    get_thumbnail(state, Path("".to_string())).await
+    get_thumbnail(state, headers, Path("".to_string())).await
 }
 
 pub async fn get_thumbnail(
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
     Path(path): Path<String>,
 ) -> impl IntoResponse {
     let full_path = match validate_path(&state.photo_root, &path) {
@@ -32,37 +35,45 @@ pub async fn get_thumbnail(
         return StatusCode::NOT_FOUND.into_response();
     }
 
-    // Cache logic
+    // Get original file metadata
     let metadata = match fs::metadata(&full_path).await {
         Ok(m) => m,
         Err(_) => return StatusCode::INTERNAL_SERVER_ERROR.into_response(),
     };
     
-    let modified = metadata.modified().ok()
-        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+    let modified_time = metadata.modified().unwrap_or_else(|_| std::time::SystemTime::now());
+    let last_modified = HttpDate::from(modified_time).to_string();
+
+    // Check If-Modified-Since
+    if let Some(if_modified_since) = headers.get(header::IF_MODIFIED_SINCE) {
+        if if_modified_since == last_modified.as_str() {
+            return StatusCode::NOT_MODIFIED.into_response();
+        }
+    }
+
+    let modified_secs = modified_time.duration_since(std::time::UNIX_EPOCH).ok()
         .map(|d| d.as_secs())
         .unwrap_or(0);
 
-    // Create unique cache key
+    // Disk Cache logic
     let mut hasher = Sha256::new();
     hasher.update(full_path.to_string_lossy().as_bytes());
-    hasher.update(modified.to_le_bytes());
+    hasher.update(modified_secs.to_le_bytes());
     let cache_key = format!("{:x}.jpg", hasher.finalize());
     
     let cache_dir = PathBuf::from(".cache/thumbs");
     let cache_path = cache_dir.join(&cache_key);
 
-    // Ensure cache dir exists
     if !cache_dir.exists() {
         fs::create_dir_all(&cache_dir).await.ok();
     }
 
-    // Serve from cache if exists
     if let Ok(cached_data) = fs::read(&cache_path).await {
         return (
             [
-                (header::CONTENT_TYPE, "image/jpeg"),
-                (header::CACHE_CONTROL, "public, max-age=31536000"),
+                (header::CONTENT_TYPE, "image/jpeg".to_string()),
+                (header::LAST_MODIFIED, last_modified),
+                (header::CACHE_CONTROL, "public, max-age=31536000".to_string()),
             ],
             cached_data,
         ).into_response();
@@ -117,13 +128,13 @@ pub async fn get_thumbnail(
     match dynamic_img.write_to(&mut buffer, image::ImageFormat::Jpeg) {
         Ok(_) => {
             let data = buffer.into_inner();
-            // Save to cache in background
             let _ = fs::write(&cache_path, &data).await;
             
             (
                 [
-                    (header::CONTENT_TYPE, "image/jpeg"),
-                    (header::CACHE_CONTROL, "public, max-age=31536000"),
+                    (header::CONTENT_TYPE, "image/jpeg".to_string()),
+                    (header::LAST_MODIFIED, last_modified),
+                    (header::CACHE_CONTROL, "public, max-age=31536000".to_string()),
                 ],
                 data,
             ).into_response()

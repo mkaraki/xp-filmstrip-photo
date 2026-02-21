@@ -1,0 +1,16 @@
+{
+  "name": "filmstrip-static-generator",
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "generate": "bun index.ts",
+    "serve": "bun server.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  },
+  "dependencies": {
+    "hono": "^4.12.1"
+  }
+}

@@ -190,6 +190,7 @@ dependencies = [
  "axum",
  "dotenv",
  "fast_image_resize",
+ "httpdate",
  "image",
  "mime_guess",
  "percent-encoding",

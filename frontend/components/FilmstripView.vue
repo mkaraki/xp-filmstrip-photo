@@ -1,42 +1,61 @@
 <template>
-  <div class="filmstrip-view xp-theme" tabindex="0" @keydown.left="prevImage" @keydown.right="nextImage" ref="pageRoot">
-    <div v-if="loading" class="loading">Loading...</div>
-    <div v-else-if="images.length === 0" class="no-images">
-      There are no images in this folder.
+  <div 
+    class="filmstrip-view xp-theme" 
+    tabindex="0" 
+    @keydown="handleKeyDown"
+    ref="pageRoot"
+  >
+    <div v-if="currentItems.length === 0" class="no-images">
+      There are no items in this folder.
     </div>
     <div v-else class="content">
       <!-- Large Preview Area -->
       <div class="preview-area" ref="previewArea">
         <div class="preview-container" ref="previewContainer">
-          <img 
-            v-if="selectedImage" 
-            :src="'/' + selectedImage.path" 
-            class="large-image" 
-            :style="imageStyle"
-            @load="onImageLoad"
-            @dblclick="openOriginal(selectedImage)"
-            :alt="selectedImage.name"
-          />
-          <div v-else class="select-hint">Select an image to preview</div>
+          <template v-if="isSelectedImage">
+            <img 
+              :src="'/' + selectedImage.path" 
+              class="large-image" 
+              :style="imageStyle"
+              @load="onImageLoad"
+              @dblclick="openOriginal(selectedImage)"
+              :alt="selectedImage.name"
+            />
+          </template>
+          <div v-else class="no-preview">
+             No preview available.
+          </div>
         </div>
         
         <!-- Navigation & Tool Buttons -->
-        <div class="preview-toolbar" v-if="selectedImage">
+        <div class="preview-toolbar">
           <div class="nav-controls">
-            <button class="nav-circle-btn blue-circle" @click="prevImage" title="Previous Image">
-               ◀
+            <button class="nav-circle-btn blue-circle" @click="prevItem(null, true)" title="Previous Item">
+               |◀
             </button>
-            <button class="nav-circle-btn blue-circle" @click="nextImage" title="Next Image">
-               ▶
+            <button class="nav-circle-btn blue-circle" @click="nextItem(null, true)" title="Next Item">
+               ▶|
             </button>
           </div>
           
           <div class="tool-controls">
-            <button class="tool-btn-small" @click="rotateLeft" title="Rotate Counterclockwise">
-               ↺
-            </button>
-            <button class="tool-btn-small" @click="rotateRight" title="Rotate Clockwise">
+            <button 
+              class="tool-btn-small" 
+              :class="{ disabled: !isSelectedImage }" 
+              :disabled="!isSelectedImage"
+              @click="rotateRight" 
+              title="Rotate Clockwise"
+            >
                ↻
+            </button>
+            <button 
+              class="tool-btn-small" 
+              :class="{ disabled: !isSelectedImage }" 
+              :disabled="!isSelectedImage"
+              @click="rotateLeft" 
+              title="Rotate Counterclockwise"
+            >
+               ↺
             </button>
           </div>
         </div>
@@ -46,23 +65,31 @@
       <div class="strip-area" @wheel="handleWheel">
         <div class="strip-container" ref="stripContainer">
           <div 
-            v-for="(img, index) in images" 
-            :key="img.path" 
+            v-for="(item, index) in currentItems" 
+            :key="item.path" 
             class="thumb-wrapper" 
-            :class="{ active: selectedImage && selectedImage.path === img.path }"
+            :class="{ active: selectedImage && selectedImage.path === item.path }"
             :ref="el => { if (el) thumbRefs[index] = el }"
-            @click="selectImage(img)"
-            @dblclick="openOriginal(img)"
+            @click="handleSelect(item)"
+            @dblclick="handleDoubleClick(item)"
           >
             <div class="thumb-img-box">
-              <img 
-                :src="'/.__api/thumb/' + img.path" 
-                class="thumb-image" 
-                loading="lazy"
-                :alt="img.name"
-              />
+              <template v-if="!item.is_dir && item.mime?.startsWith('image/')">
+                <img 
+                  :src="'/.__api/thumb/' + item.path" 
+                  class="thumb-image" 
+                  loading="lazy"
+                  :alt="item.name"
+                />
+              </template>
+              <template v-else-if="item.is_dir">
+                <span class="thumb-folder-icon">📁</span>
+              </template>
+              <template v-else>
+                <span class="thumb-file-icon">📄</span>
+              </template>
             </div>
-            <div class="thumb-name">{{ img.name }}</div>
+            <div class="thumb-name">{{ item.name }}</div>
           </div>
         </div>
       </div>
@@ -71,23 +98,9 @@
 </template>
 
 <script setup>
-const route = useRoute();
-const currentPath = computed(() => {
-  const slug = route.params.slug;
-  return Array.isArray(slug) ? slug.join('/') : (slug || '');
-});
+const { selectedImage, selectImage, currentItems } = useExplorer();
+const router = useRouter();
 
-useHead({
-  title: computed(() => {
-    if (!currentPath.value) return 'My Pictures';
-    const segments = currentPath.value.split('/');
-    return segments[segments.length - 1];
-  })
-});
-
-const items = ref([]);
-const loading = ref(true);
-const selectedImage = ref(null);
 const thumbRefs = ref([]);
 const stripContainer = ref(null);
 const previewContainer = ref(null);
@@ -97,28 +110,22 @@ const rotation = ref(0);
 const naturalWidth = ref(0);
 const naturalHeight = ref(0);
 
-const images = computed(() => {
-  return items.value.filter(item => !item.is_dir && item.mime?.startsWith('image/'));
+const isSelectedImage = computed(() => {
+  return selectedImage.value && !selectedImage.value.is_dir && selectedImage.value.mime?.startsWith('image/');
 });
 
 const imageStyle = computed(() => {
   if (!previewContainer.value || naturalWidth.value === 0) return { transform: `rotate(${rotation.value}deg)` };
-  
   const is90 = Math.abs(rotation.value / 90) % 2 !== 0;
   const Cw = previewContainer.value.clientWidth * 0.98;
   const Ch = previewContainer.value.clientHeight * 0.98;
-  
   let scale = 1;
-  
   if (is90) {
-    const rw = naturalHeight.value;
-    const rh = naturalWidth.value;
     const baseScale = Math.min(Cw / naturalWidth.value, Ch / naturalHeight.value, 1.0);
     const unrotatedW = naturalWidth.value * baseScale;
     const unrotatedH = naturalHeight.value * baseScale;
     scale = Math.min(Cw / unrotatedH, Ch / unrotatedW, 1.0);
   }
-
   return {
     transform: `rotate(${rotation.value}deg) scale(${scale})`,
     objectFit: 'contain'
@@ -130,57 +137,72 @@ const onImageLoad = (event) => {
   naturalHeight.value = event.target.naturalHeight;
 };
 
-const fetchItems = async () => {
-  loading.value = true;
-  try {
-    const apiPath = currentPath.value ? `/${currentPath.value}` : '';
-    const res = await fetch(`/.__api/list${apiPath}`);
-    items.value = await res.json();
-    if (images.value.length > 0) {
-      selectedImage.value = images.value[0];
-    } else {
-      selectedImage.value = null;
-    }
-  } catch (err) {
-    console.error('Failed to fetch items', err);
-  } finally {
-    loading.value = false;
-    nextTick(() => {
-      if (pageRoot.value) pageRoot.value.focus();
-    });
-  }
-};
-
-const selectImage = (img) => {
-  selectedImage.value = img;
+const handleSelect = (item) => {
+  selectImage(item);
   rotation.value = 0;
   naturalWidth.value = 0;
   naturalHeight.value = 0;
+};
+
+const handleDoubleClick = (item) => {
+  if (item.is_dir) {
+    router.push('/' + item.path);
+  } else {
+    openOriginal(item);
+  }
+};
+
+const handleEnter = (e) => {
+  if (e) e.preventDefault();
+  if (selectedImage.value) {
+    handleDoubleClick(selectedImage.value);
+  }
+};
+
+const handleKeyDown = (e) => {
+  if (e.key === 'Backspace') {
+    e.preventDefault();
+    router.back();
+  } else if (e.key === 'Enter') {
+    handleEnter(e);
+  } else if (e.key === 'ArrowLeft') {
+    prevItem(e, false);
+  } else if (e.key === 'ArrowRight') {
+    nextItem(e, false);
+  } else if (e.key === 'Home') {
+    e.preventDefault();
+    handleSelect(currentItems.value[0]);
+  } else if (e.key === 'End') {
+    e.preventDefault();
+    handleSelect(currentItems.value[currentItems.value.length - 1]);
+  }
 };
 
 const openOriginal = (img) => {
   window.open('/' + img.path, '_blank');
 };
 
-const prevImage = (e) => {
+const prevItem = (e, circular = false) => {
   if (e) e.preventDefault();
-  if (images.value.length === 0) return;
-  const currentIndex = images.value.findIndex(img => img.path === selectedImage.value.path);
+  const items = currentItems.value;
+  if (items.length === 0) return;
+  const currentIndex = items.findIndex(item => item.path === selectedImage.value?.path);
   if (currentIndex > 0) {
-    selectImage(images.value[currentIndex - 1]);
-  } else {
-    selectImage(images.value[images.value.length - 1]);
+    handleSelect(items[currentIndex - 1]);
+  } else if (circular) {
+    handleSelect(items[items.length - 1]);
   }
 };
 
-const nextImage = (e) => {
+const nextItem = (e, circular = false) => {
   if (e) e.preventDefault();
-  if (images.value.length === 0) return;
-  const currentIndex = images.value.findIndex(img => img.path === selectedImage.value.path);
-  if (currentIndex < images.value.length - 1) {
-    selectImage(images.value[currentIndex + 1]);
-  } else {
-    selectImage(images.value[0]);
+  const items = currentItems.value;
+  if (items.length === 0) return;
+  const currentIndex = items.findIndex(item => item.path === selectedImage.value?.path);
+  if (currentIndex < items.length - 1) {
+    handleSelect(items[currentIndex + 1]);
+  } else if (circular) {
+    handleSelect(items[0]);
   }
 };
 
@@ -195,19 +217,14 @@ const handleWheel = (e) => {
 
 watch(selectedImage, (newImg) => {
   if (!newImg) return;
-  const index = images.value.findIndex(img => img.path === newImg.path);
+  const index = currentItems.value.findIndex(item => item.path === newImg.path);
   const el = thumbRefs.value[index];
   if (el) {
-    el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    el.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
   }
 });
 
-watch(() => currentPath.value, () => {
-  fetchItems();
-});
-
 onMounted(() => {
-  fetchItems();
   if (pageRoot.value) pageRoot.value.focus();
 });
 </script>
@@ -221,7 +238,7 @@ onMounted(() => {
 }
 
 .xp-theme {
-  background-color: #F4F7F9; /* Very light blue background */
+  background-color: #F4F7F9;
   color: #000;
   font-family: "MS UI Gothic", sans-serif;
   font-size: 13px;
@@ -245,7 +262,7 @@ onMounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #F4F7F9; /* Match background */
+  background-color: #F4F7F9;
   position: relative;
   overflow: hidden;
   padding: 5px;
@@ -258,7 +275,11 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  /* No border, no white background as requested */
+}
+
+.no-preview {
+  color: #000;
+  font-size: 14px;
 }
 
 .large-image {
@@ -282,7 +303,7 @@ onMounted(() => {
 }
 
 .nav-circle-btn {
-  width: 20px; /* Small buttons as requested (13 * 1.25 approx) */
+  width: 20px;
   height: 20px;
   background: linear-gradient(135deg, #4A8FD9 0%, #316AC5 100%);
   border-radius: 50%;
@@ -293,6 +314,13 @@ onMounted(() => {
   justify-content: center;
   cursor: pointer;
   font-size: 10px;
+  white-space: nowrap;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.nav-circle-btn:hover {
+  filter: brightness(1.1);
 }
 
 .tool-btn-small {
@@ -308,8 +336,15 @@ onMounted(() => {
   box-shadow: inset 1px 1px #fff, 1px 1px #716F64;
 }
 
+.tool-btn-small.disabled {
+  color: #999;
+  cursor: default;
+  box-shadow: none;
+  border-color: #ACA899;
+}
+
 .strip-area {
-  height: 165px; /* Matched to item size */
+  height: 165px;
   background-color: white;
   border-top: 1px solid #ACA899;
   overflow-x: auto;
@@ -360,6 +395,14 @@ onMounted(() => {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+.thumb-folder-icon {
+  font-size: 64px;
+}
+
+.thumb-file-icon {
+  font-size: 64px;
 }
 
 .thumb-name {

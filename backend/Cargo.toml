@@ -1,6 +1,6 @@
 [package]
 name = "backend"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 
 [dependencies]
@@ -8,6 +8,7 @@ async-trait = "0.1.89"
 axum = { version = "0.8.8", features = ["http1", "http2", "json"] }
 dotenv = "0.15.0"
 fast_image_resize = "6.0.0"
+httpdate = "1.0.3"
 image = "0.25.9"
 mime_guess = "2.0.5"
 percent-encoding = "2.3.2"
