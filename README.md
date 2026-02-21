@@ -1,5 +1,8 @@
 # 🖼️ Filmstrip Photo Viewer (Windows XP Style)
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/e942dcdec1094503aebaee7c873ac719)](https://app.codacy.com/gh/mkaraki/xp-filmstrip-photo?utm_source=github.com&utm_medium=referral&utm_content=mkaraki/xp-filmstrip-photo&utm_campaign=Badge_Grade)
+
+
 A high-fidelity Windows XP "Luna" style web-based image viewer and file explorer.
 
 > [!IMPORTANT]
