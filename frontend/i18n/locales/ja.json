@@ -1,0 +1,62 @@
+{
+  "menu": {
+    "file": "ファイル(F)",
+    "edit": "編集(E)",
+    "view": "表示(V)",
+    "favorites": "お気に入り(A)",
+    "tools": "ツール(T)",
+    "help": "ヘルプ(H)",
+    "about": "バージョン情報(A)"
+  },
+  "toolbar": {
+    "back": "戻る",
+    "forward": "次へ",
+    "up": "上へ",
+    "folders": "フォルダ",
+    "address": "アドレス",
+    "go": "移動",
+    "views": "表示"
+  },
+  "tasks": {
+    "picture": "ピクチャのタスク",
+    "file": "ファイルとフォルダのタスク",
+    "places": "その他",
+    "details": "詳細",
+    "slideshow": "スライド ショーを表示する",
+    "print": "この写真を印刷する",
+    "download": "このファイルをダウンロードする",
+    "share": "このフォルダを共有する",
+    "copy": "このファイルをコピーする",
+    "new_folder": "新しいフォルダを作成する",
+    "publish": "このフォルダを Web に公開する",
+    "share_folder": "このフォルダを共有する",
+    "no_selection": "選択されている項目はありません。",
+    "file_folder": "ファイル フォルダ",
+    "dimensions": "大きさ",
+    "size": "サイズ",
+    "modified": "更新日時"
+  },
+  "explorer": {
+    "root": "ルート",
+    "no_items": "このフォルダには項目はありません。",
+    "no_preview": "プレビューを利用できません。",
+    "prev": "前の項目",
+    "next": "次の項目",
+    "rotate_cw": "時計回りに回転",
+    "rotate_ccw": "反時計回りに回転",
+    "loading": "読み込み中..."
+  },
+  "details_cols": {
+    "name": "名前",
+    "size": "サイズ",
+    "type": "種類",
+    "date": "更新日時"
+  },
+  "about": {
+    "title": "Web ベースのファイル エクスプローラ",
+    "version_line": "バージョン: フロントエンド v{fe_ver} (ビルド {fe_build})、バックエンド v{be_ver} (ビルド {be_build})",
+    "copyright": "Copyright (C) 2026 mkaraki",
+    "license": "この製品は {link} の条件の下でライセンスされています。",
+    "memory": "このツールで使用できる物理メモリ: {memory} KB"
+  }
+}

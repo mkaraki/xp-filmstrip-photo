@@ -1,18 +1,18 @@
 <template>
   <div class="about-content">
     <div class="info-group">
-      <p>Web based File Explorer</p>
-      <p>Version {{ appVersion }} (Backend {{ beVersion }})</p>
-      <p>Copyright (C) 2026 mkaraki</p>
+      <p>{{ $t('about.title') }}</p>
+      <p>{{ versionText }}</p>
+      <p>{{ $t('about.copyright') }}</p>
     </div>
     
     <div class="spacer"></div>
     
-    <p>This product is licensed under the terms of the <a href="https://opensource.org/license/MIT" target="_blank" rel="noopener noreferrer" class="xp-link">MIT License</a>.</p>
+    <p v-html="licenseHtml"></p>
     
     <hr class="divider" />
     
-    <p>Physical memory available to this tool: {{ memoryKB }} KB</p>
+    <p>{{ $t('about.memory', { memory: memoryKB }) }}</p>
     
     <div class="footer">
       <button class="xp-dialog-btn" @click="close">OK</button>
@@ -25,28 +25,65 @@ definePageMeta({
   layout: 'about'
 });
 
+const { t } = useI18n();
+
 useHead({
-  title: 'About this tool'
+  title: t('menu.about')
 });
 
 const config = useRuntimeConfig();
-const appVersion = config.public.appVersion;
+const feVersion = config.public.appVersion;
+const feBuildTime = config.public.buildTime;
 
 const { fetchApi } = useApiFetch();
 
 const beVersion = ref('loading...');
+const beBuildTime = ref('loading...');
+const pinnerVersion = ref(null);
+const pinnerBuildTime = ref(null);
 const memoryKB = ref('0');
 
 const close = () => {
   window.close();
 };
 
+const licenseHtml = computed(() => {
+  const link = `<a href="https://opensource.org/license/MIT" target="_blank" rel="noopener noreferrer" class="xp-link">MIT License</a>`;
+  return t('about.license', { link });
+});
+
+const versionText = computed(() => {
+  let beVer = beVersion.value;
+  let beBuild = beBuildTime.value;
+
+  if (pinnerVersion.value) {
+    beVer += `+pinner${pinnerVersion.value}`;
+    beBuild += `+pinner${pinnerBuildTime.value}`;
+  }
+
+  return t('about.version_line', {
+    fe_ver: feVersion,
+    fe_build: feBuildTime,
+    be_ver: beVer,
+    be_build: beBuild
+  });
+});
+
 onMounted(async () => {
   try {
     const res = await fetchApi('/.__api/version');
-    if (res.ok) beVersion.value = await res.text();
+    if (res.ok) {
+      const data = await res.json();
+      beVersion.value = data.version;
+      beBuildTime.value = data.build_time;
+      if (data.pinner_version) {
+        pinnerVersion.value = data.pinner_version;
+        pinnerBuildTime.value = data.pinner_build_time;
+      }
+    }
   } catch (e) {
     beVersion.value = 'unknown';
+    beBuildTime.value = 'unknown';
   }
 
   if (navigator.deviceMemory) {
@@ -60,7 +97,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* (Styles same as before) */
 .about-content {
   padding: 20px;
   display: flex;
@@ -81,7 +117,7 @@ onMounted(async () => {
   height: 2.5em;
 }
 
-.xp-link {
+:deep(.xp-link) {
   color: #0000FF;
   text-decoration: underline;
 }

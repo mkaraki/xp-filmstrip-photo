@@ -6,7 +6,7 @@
     ref="pageRoot"
   >
     <div v-if="currentItems.length === 0" class="no-images">
-      There are no items in this folder.
+      {{ $t('explorer.no_items') }}
     </div>
     <div v-else class="content">
       <!-- Large Preview Area -->
@@ -23,17 +23,17 @@
             />
           </template>
           <div v-else class="no-preview">
-             No preview available.
+             {{ $t('explorer.no_preview') }}
           </div>
         </div>
         
         <!-- Navigation & Tool Buttons -->
         <div class="preview-toolbar">
           <div class="nav-controls">
-            <button class="nav-circle-btn blue-circle" @click="prevItem(null, true)" title="Previous Item">
+            <button class="nav-circle-btn blue-circle" @click="prevItem(null, true)" :title="$t('explorer.prev')">
                |◀
             </button>
-            <button class="nav-circle-btn blue-circle" @click="nextItem(null, true)" title="Next Item">
+            <button class="nav-circle-btn blue-circle" @click="nextItem(null, true)" :title="$t('explorer.next')">
                ▶|
             </button>
           </div>
@@ -44,7 +44,7 @@
               :class="{ disabled: !isSelectedImage }" 
               :disabled="!isSelectedImage"
               @click="rotateRight" 
-              title="Rotate Clockwise"
+              :title="$t('explorer.rotate_cw')"
             >
                ↻
             </button>
@@ -53,7 +53,7 @@
               :class="{ disabled: !isSelectedImage }" 
               :disabled="!isSelectedImage"
               @click="rotateLeft" 
-              title="Rotate Counterclockwise"
+              :title="$t('explorer.rotate_ccw')"
             >
                ↺
             </button>
@@ -148,7 +148,7 @@ const handleDoubleClick = (item) => {
   if (item.is_dir) {
     router.push('/' + item.path);
   } else {
-    openOriginal(item);
+    window.open('/' + item.path, '_blank');
   }
 };
 
@@ -176,10 +176,6 @@ const handleKeyDown = (e) => {
     e.preventDefault();
     handleSelect(currentItems.value[currentItems.value.length - 1]);
   }
-};
-
-const openOriginal = (img) => {
-  window.open('/' + img.path, '_blank');
 };
 
 const prevItem = (e, circular = false) => {
@@ -230,6 +226,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* (Styles unchanged) */
 .filmstrip-view {
   display: flex;
   flex-direction: column;
@@ -350,7 +347,6 @@ onMounted(() => {
   overflow-x: auto;
   overflow-y: hidden;
   padding: 10px;
-  scrollbar-width: thin;
 }
 
 .strip-container {

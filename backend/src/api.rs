@@ -27,6 +27,12 @@ pub struct FileMetadata {
     pub height: u32,
 }
 
+#[derive(Serialize)]
+pub struct VersionInfo {
+    pub version: &'static str,
+    pub build_time: &'static str,
+}
+
 pub fn router(_state: Arc<AppState>) -> Router<Arc<AppState>> {
     Router::new()
         .route("/list/{*path}", get(list_folder))
@@ -68,7 +74,6 @@ async fn list_folder(
     State(state): State<Arc<AppState>>,
     Path(path): Path<String>,
 ) -> Result<Json<Vec<FolderItem>>, axum::http::StatusCode> {
-    // Strip .json if present
     let path = if path.ends_with(".json") {
         &path[..path.len() - 5]
     } else if !path.is_empty() {
@@ -149,7 +154,6 @@ async fn list_dirs(
     State(state): State<Arc<AppState>>,
     Path(path): Path<String>,
 ) -> Result<Json<Vec<FolderItem>>, axum::http::StatusCode> {
-    // Strip .json if present
     let path = if path.ends_with(".json") {
         &path[..path.len() - 5]
     } else if !path.is_empty() {
@@ -211,7 +215,6 @@ async fn get_metadata(
     State(state): State<Arc<AppState>>,
     Path(path): Path<String>,
 ) -> Result<Json<FileMetadata>, axum::http::StatusCode> {
-    // Strip .json
     let path = if path.ends_with(".json") {
         &path[..path.len() - 5]
     } else {
@@ -236,6 +239,9 @@ async fn get_metadata(
     Ok(Json(metadata))
 }
 
-async fn get_version() -> &'static str {
-    env!("CARGO_PKG_VERSION")
+async fn get_version() -> Json<VersionInfo> {
+    Json(VersionInfo {
+        version: env!("CARGO_PKG_VERSION"),
+        build_time: env!("BUILD_TIME"),
+    })
 }

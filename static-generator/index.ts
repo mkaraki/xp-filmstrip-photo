@@ -11,10 +11,14 @@ const FRONTEND_OUTPUT = "../frontend/.output/public";
 const pkg = JSON.parse(fs.readFileSync("./package.json", "utf-8"));
 const PINNER_VERSION = pkg.version;
 
+// Capture current time for pinner build time
+const now = new Date();
+const pad = (n: number) => n.toString().padStart(2, '0');
+const pinnerBuildTime = `${now.getFullYear()}.${pad(now.getMonth() + 1)}${pad(now.getDate())}.${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
 async function scrape() {
   console.log("--- Starting Incremental Static Site Generation ---");
 
-  // Create output dir if not exists (don't delete)
   if (!fs.existsSync(OUTPUT_DIR)) {
     await mkdir(OUTPUT_DIR, { recursive: true });
   }
@@ -24,13 +28,10 @@ async function scrape() {
     console.error("Nuxt build not found! Run 'cd frontend; bun run generate' first.");
     process.exit(1);
   }
-  // Use cp with recursive but we'll assume Nuxt files might change often
   await cp(FRONTEND_OUTPUT, OUTPUT_DIR, { recursive: true });
 
   const saveFile = async (relPath: string, url: string, transform?: (data: any) => any) => {
     const targetPath = join(OUTPUT_DIR, relPath);
-    
-    // For images/thumbs, check modified date
     const isBinary = !url.includes(".json") && !url.includes("version");
     
     if (isBinary && fs.existsSync(targetPath)) {
@@ -41,15 +42,12 @@ async function scrape() {
         const localStat = await stat(targetPath);
         const serverTime = new Date(serverLastModified).getTime();
         const localTime = localStat.mtime.getTime();
-        
-        // If times match (approx), skip
         if (Math.abs(serverTime - localTime) < 2000) {
           return null; 
         }
       }
     }
 
-    console.log(`Fetching file: ${url}`);
     const res = await fetch(url);
     if (!res.ok) {
       console.error(`Failed to fetch ${url}: ${res.status}`);
@@ -68,7 +66,6 @@ async function scrape() {
       const buffer = Buffer.from(await res.arrayBuffer());
       await writeFile(targetPath, buffer);
       
-      // Sync modification time if provided by server
       const lastMod = res.headers.get("last-modified");
       if (lastMod) {
         const mtime = new Date(lastMod);
@@ -79,8 +76,14 @@ async function scrape() {
   };
 
   console.log("Fetching version info...");
-  await saveFile("/.__api/version.json", `${BACKEND_URL}/.__api/version.json`, (text) => {
-    return `${text.trim()}+pinner${PINNER_VERSION}`;
+  await saveFile("/.__api/version.json", `${BACKEND_URL}/.__api/version.json`, (jsonText) => {
+    const info = JSON.parse(jsonText);
+    // Rewrite to include pinner info
+    return JSON.stringify({
+      ...info,
+      pinner_version: PINNER_VERSION,
+      pinner_build_time: pinnerBuildTime
+    });
   });
 
   const processedDirs = new Set();
@@ -90,7 +93,6 @@ async function scrape() {
     processedDirs.add(relPath);
 
     console.log(`Processing folder: /${relPath || "Root"}`);
-    
     const apiSuffix = relPath ? `/${relPath}.json` : ".json";
     
     await saveFile(`/.__api/dirs${apiSuffix}`, `${BACKEND_URL}/.__api/dirs${apiSuffix}`);
@@ -101,7 +103,6 @@ async function scrape() {
         if (item.is_dir) {
           await scrapeFolder(item.path);
         } else {
-          // Check original file incremental sync
           const targetFilePath = join(OUTPUT_DIR, item.path);
           const sourceFilePath = join(PHOTO_ROOT, item.path);
           
@@ -118,7 +119,6 @@ async function scrape() {
             try {
               await mkdir(dirname(targetFilePath), { recursive: true });
               await copyFile(sourceFilePath, targetFilePath);
-              // Sync mtime
               const sStat = await stat(sourceFilePath);
               await utimes(targetFilePath, new Date(), sStat.mtime);
             } catch (e) {

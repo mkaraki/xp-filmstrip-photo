@@ -1,0 +1,62 @@
+{
+  "menu": {
+    "file": "File",
+    "edit": "Edit",
+    "view": "View",
+    "favorites": "Favorites",
+    "tools": "Tools",
+    "help": "Help",
+    "about": "About this tool"
+  },
+  "toolbar": {
+    "back": "Back",
+    "forward": "Forward",
+    "up": "Up",
+    "folders": "Folders",
+    "address": "Address",
+    "go": "Go",
+    "views": "Views"
+  },
+  "tasks": {
+    "picture": "Picture Tasks",
+    "file": "File and Folder Tasks",
+    "places": "Other Places",
+    "details": "Details",
+    "slideshow": "View as a slide show",
+    "print": "Print this picture",
+    "download": "Download this file",
+    "share": "Share this folder",
+    "copy": "Copy this file",
+    "new_folder": "Make a new folder",
+    "publish": "Publish to the Web",
+    "share_folder": "Share this folder",
+    "no_selection": "No item selected",
+    "file_folder": "File Folder",
+    "dimensions": "Dimensions",
+    "size": "Size",
+    "modified": "Modified"
+  },
+  "explorer": {
+    "root": "Root",
+    "no_items": "There are no items in this folder.",
+    "no_preview": "No preview available.",
+    "prev": "Previous Item",
+    "next": "Next Item",
+    "rotate_cw": "Rotate Clockwise",
+    "rotate_ccw": "Rotate Counterclockwise",
+    "loading": "Loading..."
+  },
+  "details_cols": {
+    "name": "Name",
+    "size": "Size",
+    "type": "Type",
+    "date": "Date Modified"
+  },
+  "about": {
+    "title": "Web based File Explorer",
+    "version_line": "Version: Frontend v{fe_ver} (Build {fe_build}), Backend v{be_ver} (Build {be_build})",
+    "copyright": "Copyright (C) 2026 mkaraki",
+    "license": "This product is licensed under the terms of the {link}.",
+    "memory": "Physical memory available to this tool: {memory} KB"
+  }
+}

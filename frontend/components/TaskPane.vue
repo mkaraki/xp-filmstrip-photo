@@ -3,17 +3,17 @@
     <!-- Picture Tasks -->
     <div class="task-group" v-if="hasImages">
       <div class="task-group-header" @click="expanded.picture = !expanded.picture">
-        <span class="header-text">Picture Tasks</span>
+        <span class="header-text">{{ $t('tasks.picture') }}</span>
         <div class="task-toggle-btn" :class="{ 'is-collapsed': !expanded.picture }">
           <span class="double-chevron">«</span>
         </div>
       </div>
       <div v-if="expanded.picture" class="task-group-content">
         <div class="task-item" @click="e => startSlideshow(e)">
-          <span class="task-icon">▶️</span> View as a slide show
+          <span class="task-icon">▶️</span> {{ $t('tasks.slideshow') }}
         </div>
         <div class="task-item" v-if="isSelectedImage" @click="printImage">
-          <span class="task-icon">🖨️</span> Print this picture
+          <span class="task-icon">🖨️</span> {{ $t('tasks.print') }}
         </div>
       </div>
     </div>
@@ -21,7 +21,7 @@
     <!-- File and Folder Tasks -->
     <div class="task-group" v-if="selectedImage">
       <div class="task-group-header" @click="expanded.file = !expanded.file">
-        <span class="header-text">File and Folder Tasks</span>
+        <span class="header-text">{{ $t('tasks.file') }}</span>
         <div class="task-toggle-btn" :class="{ 'is-collapsed': !expanded.file }">
           <span class="double-chevron">«</span>
         </div>
@@ -29,11 +29,11 @@
       <div v-if="expanded.file" class="task-group-content">
         <!-- Folders: Share -->
         <div class="task-item" v-if="selectedImage.is_dir" @click="shareFolder">
-          <span class="task-icon">🤝</span> Share this folder
+          <span class="task-icon">🤝</span> {{ $t('tasks.share') }}
         </div>
         <!-- Files: Download -->
         <div class="task-item" v-if="!selectedImage.is_dir" @click="downloadFile">
-          <span class="task-icon">💾</span> Download this file
+          <span class="task-icon">💾</span> {{ $t('tasks.download') }}
         </div>
       </div>
     </div>
@@ -41,7 +41,7 @@
     <!-- Other Places -->
     <div class="task-group">
       <div class="task-group-header" @click="expanded.places = !expanded.places">
-        <span class="header-text">Other Places</span>
+        <span class="header-text">{{ $t('tasks.places') }}</span>
         <div class="task-toggle-btn" :class="{ 'is-collapsed': !expanded.places }">
           <span class="double-chevron">«</span>
         </div>
@@ -50,14 +50,14 @@
         <div v-if="parentPathInfo" class="task-item link" @click="goToParent">
           📁 {{ parentPathInfo.name }}
         </div>
-        <div class="task-item link" @click="goToRoot">🖥️ Root</div>
+        <div class="task-item link" @click="goToRoot">🖥️ {{ $t('explorer.root') }}</div>
       </div>
     </div>
 
     <!-- Details -->
     <div class="task-group">
       <div class="task-group-header" @click="expanded.details = !expanded.details">
-        <span class="header-text">Details</span>
+        <span class="header-text">{{ $t('tasks.details') }}</span>
         <div class="task-toggle-btn" :class="{ 'is-collapsed': !expanded.details }">
           <span class="double-chevron">«</span>
         </div>
@@ -67,14 +67,14 @@
           <div class="detail-name">{{ selectedImage.name }}</div>
           <div class="detail-line">{{ friendlyFileType }}</div>
           <template v-if="selectedMetadata">
-            <div class="detail-line">Dimensions: {{ selectedMetadata.width }} x {{ selectedMetadata.height }}</div>
+            <div class="detail-line">{{ $t('tasks.dimensions') }}: {{ selectedMetadata.width }} x {{ selectedMetadata.height }}</div>
           </template>
           <!-- Hide size for directories -->
-          <div v-if="!selectedImage.is_dir" class="detail-line">Size: {{ friendlySize }}</div>
-          <div class="detail-line">Modified: {{ friendlyDate }}</div>
+          <div v-if="!selectedImage.is_dir" class="detail-line">{{ $t('tasks.size') }}: {{ friendlySize }}</div>
+          <div class="detail-line">{{ $t('tasks.modified') }}: {{ friendlyDate }}</div>
         </template>
         <template v-else>
-          <div class="detail-name">No item selected</div>
+          <div class="detail-name">{{ $t('tasks.no_selection') }}</div>
         </template>
       </div>
     </div>
@@ -85,6 +85,7 @@
 const { selectedImage, selectedMetadata, currentItems, toggleSlideshow } = useExplorer();
 const router = useRouter();
 const route = useRoute();
+const { t } = useI18n();
 
 const expanded = ref({
   picture: true,
@@ -121,7 +122,7 @@ const startSlideshow = (event) => {
 
 const friendlyFileType = computed(() => {
   if (!selectedImage.value) return '';
-  if (selectedImage.value.is_dir) return 'File Folder';
+  if (selectedImage.value.is_dir) return t('tasks.file_folder');
   const ext = selectedImage.value.name.split('.').pop().toLowerCase();
   if (ext === 'jpg' || ext === 'jpeg') return 'JPEG Image';
   return `${ext.toUpperCase()} Image`;
@@ -188,6 +189,7 @@ const goToParent = () => {
 </script>
 
 <style scoped>
+/* (Styles same as before) */
 .task-pane {
   background: linear-gradient(to bottom, #748AFF 0%, #4058D3 100%);
   height: 100%;

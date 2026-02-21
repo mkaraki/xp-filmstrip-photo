@@ -15,10 +15,10 @@
             <img :src="'/.__api/thumb/' + item.path" class="img-content" loading="lazy" />
           </template>
           <template v-else-if="item.is_dir">
-            <span class="folder-icon">📁</span>
+            <span class="thumb-folder-icon">📁</span>
           </template>
           <template v-else>
-            <span class="file-icon">📄</span>
+            <span class="thumb-file-icon">📄</span>
           </template>
         </div>
         <div class="item-name">{{ item.name }}</div>
@@ -48,18 +48,15 @@ const handleKeyDown = (e) => {
   const currentIndex = currentItems.value.findIndex(item => item.path === selectedImage.value?.path);
   let nextIndex = currentIndex;
 
-  // Calculate grid columns
   const containerWidth = gridContainer.value?.clientWidth || 0;
-  const itemWidth = 140; // 120 width + 20 gap approx
+  const itemWidth = 140; 
   const cols = Math.max(1, Math.floor(containerWidth / itemWidth));
 
   switch(e.key) {
     case 'ArrowLeft':
-      // Stop at row edge (don't wrap to previous line)
       if (currentIndex % cols !== 0) nextIndex = currentIndex - 1;
       break;
     case 'ArrowRight':
-      // Stop at row edge (don't wrap to next line)
       if ((currentIndex + 1) % cols !== 0 && currentIndex < currentItems.value.length - 1) nextIndex = currentIndex + 1;
       break;
     case 'ArrowUp':
@@ -75,7 +72,6 @@ const handleKeyDown = (e) => {
       nextIndex = currentItems.value.length - 1;
       break;
     case 'PageUp':
-      // Approximately skip 3 rows for a page
       nextIndex = Math.max(0, currentIndex - (cols * 3));
       break;
     case 'PageDown':
@@ -109,6 +105,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* (Styles unchanged) */
 .thumbnails-view {
   height: 100%;
   overflow-y: auto;
@@ -160,7 +157,11 @@ onMounted(() => {
   object-fit: contain;
 }
 
-.folder-icon, .file-icon {
+.thumb-folder-icon {
+  font-size: 48px;
+}
+
+.thumb-file-icon {
   font-size: 48px;
 }
 

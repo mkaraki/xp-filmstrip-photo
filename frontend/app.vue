@@ -4,15 +4,33 @@
       <!-- XP Menu Bar -->
       <nav class="xp-menu-bar">
         <div class="menu-items">
-          <div class="menu-item disabled">File</div>
-          <div class="menu-item disabled">Edit</div>
-          <div class="menu-item disabled">View</div>
-          <div class="menu-item disabled">Favorites</div>
-          <div class="menu-item disabled">Tools</div>
+          <div class="menu-item disabled">{{ $t('menu.file') }}</div>
+          <div class="menu-item disabled">{{ $t('menu.edit') }}</div>
+          
+          <!-- View Menu -->
           <div class="menu-item-group">
-            <div class="menu-item" :class="{ 'is-active': showHelpDropdown }" @click.stop="toggleHelpDropdown">Help</div>
+            <div class="menu-item" :class="{ 'is-active': showViewMenuDropdown }" @click.stop="toggleViewMenuDropdown">{{ $t('menu.view') }}</div>
+            <div v-if="showViewMenuDropdown" class="xp-menu-dropdown">
+              <div class="dropdown-item has-submenu" @mouseenter="showLangSubmenu = true" @mouseleave="showLangSubmenu = false">
+                Language <span class="submenu-arrow">▶</span>
+                <div v-if="showLangSubmenu" class="xp-menu-dropdown submenu">
+                  <div class="dropdown-item" @click="changeLocale('en')">
+                    <span class="check-mark">{{ locale === 'en' ? '✓' : '' }}</span> English
+                  </div>
+                  <div class="dropdown-item" @click="changeLocale('ja')">
+                    <span class="check-mark">{{ locale === 'ja' ? '✓' : '' }}</span> 日本語
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="menu-item disabled">{{ $t('menu.favorites') }}</div>
+          <div class="menu-item disabled">{{ $t('menu.tools') }}</div>
+          <div class="menu-item-group">
+            <div class="menu-item" :class="{ 'is-active': showHelpDropdown }" @click.stop="toggleHelpDropdown">{{ $t('menu.help') }}</div>
             <div v-if="showHelpDropdown" class="xp-menu-dropdown">
-              <div class="dropdown-item" @click="openAbout">About this tool</div>
+              <div class="dropdown-item" @click="openAbout">{{ $t('menu.about') }}</div>
             </div>
           </div>
         </div>
@@ -25,8 +43,8 @@
       <header class="xp-toolbar">
         <div class="nav-buttons">
           <div class="split-btn-group">
-            <button class="xp-tool-btn green-circle" @click="goBack" :disabled="!canGoBack" title="Back">
-              <span class="icon-circle">←</span> <span class="btn-text">Back</span>
+            <button class="xp-tool-btn green-circle" @click="goBack" :disabled="!canGoBack" :title="$t('toolbar.back')">
+              <span class="icon-circle">←</span> <span class="btn-text">{{ $t('toolbar.back') }}</span>
             </button>
             <button class="dropdown-arrow" @click.stop="toggleBackDropdown" :disabled="backItems.length === 0">▼</button>
             
@@ -43,7 +61,7 @@
           </div>
 
           <div class="split-btn-group">
-            <button class="xp-tool-btn green-circle icon-only" @click="goForward" :disabled="!canGoForward" title="Forward">
+            <button class="xp-tool-btn green-circle icon-only" @click="goForward" :disabled="!canGoForward" :title="$t('toolbar.forward')">
               <span class="icon-circle">→</span>
             </button>
             <button class="dropdown-arrow" @click.stop="toggleForwardDropdown" :disabled="forwardItems.length === 0">▼</button>
@@ -60,7 +78,7 @@
             </div>
           </div>
 
-          <button class="xp-tool-btn green-circle icon-only" @click="goUp" :disabled="isRoot" title="Up">
+          <button class="xp-tool-btn green-circle icon-only" @click="goUp" :disabled="isRoot" :title="$t('toolbar.up')">
             <span class="icon-circle">↑</span>
           </button>
           
@@ -71,14 +89,14 @@
             :class="{ 'is-pressed': showFolders }"
             @click="toggleFolders"
           >
-            <span class="folder-btn-icon">📁</span> <span class="btn-text">Folders</span>
+            <span class="folder-btn-icon">📁</span> <span class="btn-text">{{ $t('toolbar.folders') }}</span>
           </button>
 
           <div class="separator"></div>
 
           <!-- View Mode Selector -->
           <div class="split-btn-group">
-            <button class="xp-tool-btn view-mode-toggle" @click.stop="toggleViewDropdown">
+            <button class="xp-tool-btn view-mode-toggle" @click.stop="toggleViewDropdown" :title="$t('toolbar.views')">
               <span class="view-btn-icon">🖼️</span> <span class="dropdown-arrow-inline">▼</span>
             </button>
             <div v-if="showViewDropdown" class="xp-dropdown view-dropdown">
@@ -96,7 +114,7 @@
         </div>
         
         <div class="address-bar-row">
-          <label>Address</label>
+          <label>{{ $t('toolbar.address') }}</label>
           <div class="address-input-container">
             <span class="address-icon">{{ isRoot ? '🖥️' : '📁' }}</span>
             <input 
@@ -107,7 +125,7 @@
             />
           </div>
           <button class="go-btn-xp" @click="navigateToAddress">
-            <span class="go-icon-box">→</span> Go
+            <span class="go-icon-box">→</span> {{ $t('toolbar.go') }}
           </button>
         </div>
       </header>
@@ -117,11 +135,11 @@
           <!-- Folders View -->
           <template v-if="showFolders">
             <div class="sidebar-header">
-              <span>Folders</span>
+              <span>{{ $t('toolbar.folders') }}</span>
               <button class="close-sidebar" @click="showFolders = false">×</button>
             </div>
             <div class="tree-container">
-              <FolderTree :folder="{ name: 'Root', path: '', is_dir: true, has_subdirs: true }" />
+              <FolderTree :folder="{ name: $t('explorer.root'), path: '', is_dir: true, has_subdirs: true }" />
             </div>
           </template>
           
@@ -144,26 +162,17 @@
 <script setup>
 const router = useRouter();
 const route = useRoute();
+const { t, locale, setLocale } = useI18n();
 const { historyStack, currentIndex, push, backItems, forwardItems } = useHistory();
 const { viewMode, setViewMode } = useExplorer();
-
-const pageTitle = computed(() => {
-  const slug = route.params.slug;
-  const p = Array.isArray(slug) ? slug.join('/') : (slug || '');
-  if (!p || p === '/') return 'Root';
-  const segments = p.split('/').filter(Boolean);
-  return segments[segments.length - 1];
-});
-
-useHead({
-  title: pageTitle
-});
 
 const showFolders = ref(true);
 const addressInput = ref('/');
 const showBackDropdown = ref(false);
 const showForwardDropdown = ref(false);
 const showViewDropdown = ref(false);
+const showViewMenuDropdown = ref(false);
+const showLangSubmenu = ref(false);
 const showHelpDropdown = ref(false);
 
 const isAboutPage = computed(() => route.path === '/.__about');
@@ -175,6 +184,18 @@ const isRoot = computed(() => {
   const slug = route.params.slug;
   const p = Array.isArray(slug) ? slug.join('/') : (slug || '');
   return p === '';
+});
+
+const pageTitle = computed(() => {
+  const slug = route.params.slug;
+  const p = Array.isArray(slug) ? slug.join('/') : (slug || '');
+  if (!p || p === '/') return t('explorer.root');
+  const segments = p.split('/').filter(Boolean);
+  return segments[segments.length - 1];
+});
+
+useHead({
+  title: pageTitle
 });
 
 watch(() => route.path, (newPath) => {
@@ -193,38 +214,44 @@ watch(() => route.path, (newPath) => {
 }, { immediate: true });
 
 const toggleBackDropdown = () => {
-  showBackDropdown.value = !showBackDropdown.value;
-  showForwardDropdown.value = false;
-  showViewDropdown.value = false;
-  showHelpDropdown.value = false;
+  closeDropdowns();
+  showBackDropdown.value = true;
 };
 
 const toggleForwardDropdown = () => {
-  showForwardDropdown.value = !showForwardDropdown.value;
-  showBackDropdown.value = false;
-  showViewDropdown.value = false;
-  showHelpDropdown.value = false;
+  closeDropdowns();
+  showForwardDropdown.value = true;
 };
 
 const toggleViewDropdown = () => {
-  showViewDropdown.value = !showViewDropdown.value;
-  showBackDropdown.value = false;
-  showForwardDropdown.value = false;
-  showHelpDropdown.value = false;
+  closeDropdowns();
+  showViewDropdown.value = true;
+};
+
+const toggleViewMenuDropdown = () => {
+  const current = showViewMenuDropdown.value;
+  closeDropdowns();
+  showViewMenuDropdown.value = !current;
 };
 
 const toggleHelpDropdown = () => {
-  showHelpDropdown.value = !showHelpDropdown.value;
-  showBackDropdown.value = false;
-  showForwardDropdown.value = false;
-  showViewDropdown.value = false;
+  const current = showHelpDropdown.value;
+  closeDropdowns();
+  showHelpDropdown.value = !current;
 };
 
 const closeDropdowns = () => {
   showBackDropdown.value = false;
   showForwardDropdown.value = false;
   showViewDropdown.value = false;
+  showViewMenuDropdown.value = false;
   showHelpDropdown.value = false;
+  showLangSubmenu.value = false;
+};
+
+const changeLocale = (code) => {
+  setLocale(code);
+  closeDropdowns();
 };
 
 const openAbout = () => {
@@ -274,6 +301,7 @@ const toggleFolders = () => {
 </script>
 
 <style>
+/* (Same styles as before, adding submenu specific ones) */
 body, html {
   margin: 0;
   padding: 0;
@@ -284,7 +312,7 @@ body, html {
   background-color: #ECE9D8;
 }
 
-/* Windows XP Luna Blue Scrollbar Styling - Lighter & More Authentic */
+/* XP Luna Blue Scrollbar Styling */
 ::-webkit-scrollbar {
   width: 17px;
   height: 17px;
@@ -406,6 +434,36 @@ body, html {
   min-width: 150px;
 }
 
+.xp-menu-dropdown.submenu {
+  top: 0;
+  left: 100%;
+}
+
+.dropdown-item {
+  padding: 3px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #000;
+}
+
+.dropdown-item.has-submenu {
+  justify-content: space-between;
+}
+
+.submenu-arrow {
+  font-size: 8px;
+}
+
+.dropdown-item:hover {
+  background-color: #316AC5;
+  color: #FFF;
+}
+
 .xp-logo-area {
   width: 48px;
   height: 24px;
@@ -519,22 +577,6 @@ body, html {
 .xp-dropdown.view-dropdown {
   right: 0;
   left: auto;
-}
-
-.dropdown-item {
-  padding: 3px 10px;
-  cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.dropdown-item:hover {
-  background-color: #316AC5;
-  color: white;
 }
 
 .check-mark {

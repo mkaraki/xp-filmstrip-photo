@@ -3,10 +3,10 @@
     <table class="details-table">
       <thead>
         <tr>
-          <th class="col-name">Name</th>
-          <th class="col-size">Size</th>
-          <th class="col-type">Type</th>
-          <th class="col-date">Date Modified</th>
+          <th class="col-name">{{ $t('details_cols.name') }}</th>
+          <th class="col-size">{{ $t('details_cols.size') }}</th>
+          <th class="col-type">{{ $t('details_cols.type') }}</th>
+          <th class="col-date">{{ $t('details_cols.date') }}</th>
         </tr>
       </thead>
       <tbody>
@@ -34,6 +34,7 @@
 <script setup>
 const { currentItems, selectedImage, selectImage } = useExplorer();
 const router = useRouter();
+const { t } = useI18n();
 const viewRoot = ref(null);
 const itemRefs = ref([]);
 
@@ -64,7 +65,7 @@ const handleKeyDown = (e) => {
       nextIndex = currentItems.value.length - 1;
       break;
     case 'PageUp':
-      nextIndex = Math.max(0, currentIndex - 15); // Skip 15 items
+      nextIndex = Math.max(0, currentIndex - 15);
       break;
     case 'PageDown':
       nextIndex = Math.min(currentItems.value.length - 1, currentIndex + 15);
@@ -89,7 +90,7 @@ const friendlySize = (bytes) => {
 };
 
 const friendlyType = (item) => {
-  if (item.is_dir) return 'File Folder';
+  if (item.is_dir) return t('tasks.file_folder');
   const ext = item.name.split('.').pop().toLowerCase();
   if (ext === 'jpg' || ext === 'jpeg') return 'JPEG Image';
   if (ext === 'png') return 'PNG Image';
@@ -116,6 +117,7 @@ onMounted(() => {
 </script>
 
 <style scoped>
+/* (Styles same as before) */
 .details-view {
   height: 100%;
   overflow-y: auto;
