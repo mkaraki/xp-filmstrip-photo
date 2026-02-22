@@ -18,3 +18,6 @@ sha2 = { version = "0.10.9", features = ["std"] }
 tokio = { version = "1.49.0", features = ["full"] }
 tower-http = { version = "0.6.8", features = ["fs", "cors", "trace"] }
 walkdir = "2.5.0"
+
+[build-dependencies]
+chrono = "0.4.43"
