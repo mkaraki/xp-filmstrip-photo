@@ -1,5 +1,5 @@
 # Stage 1: Build Frontend
-FROM oven/bun:latest AS frontend-builder
+FROM oven/bun:1.3.9 AS frontend-builder
 WORKDIR /app/frontend
 COPY frontend/package.json frontend/bun.lockb ./
 RUN bun install
@@ -22,9 +22,18 @@ RUN cargo build --release
 # Stage 3: Final Image
 FROM debian:bookworm-slim
 WORKDIR /app
-RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Create a non-root user and group, install dependencies, and set permissions
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser && \
+    apt-get update && apt-get install -y libssl3 ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /app && chown -R appuser:appgroup /app
+
 COPY --from=backend-builder /app/backend/target/release/backend ./server
 COPY --from=frontend-builder /app/frontend/.output ./frontend/.output
 COPY backend/.env .env
+
+USER appuser
+
 EXPOSE 8080
 CMD ["./server"]

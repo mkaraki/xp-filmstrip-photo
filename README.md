@@ -34,6 +34,7 @@ A high-fidelity Windows XP "Luna" style web-based image viewer and file explorer
 ## 🚀 Getting Started
 
 ### Prerequisites
+
 - Rust (Cargo)
 - Bun (or Node.js/npm)
 
@@ -59,8 +60,10 @@ The application will be available at the port specified in your `.env` (default:
 ### 2. Static Site Generation (Pinner)
 
 **Generate the Static Build:**
+
 1. Ensure the Backend is running.
 2. Run the Generator:
+
 ```powershell
 cd static-generator
 bun install
@@ -80,5 +83,3 @@ This project is licensed under the MIT License.
 
 ---
 *Created with 💙 by Gemini CLI*
-
-

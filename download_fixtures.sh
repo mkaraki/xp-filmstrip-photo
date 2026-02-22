@@ -17,7 +17,7 @@ download_images() {
   local dir="$1"
   local count="$2"
   echo "Downloading $count images into $dir..."
-  for i in $(seq 1 $count); do
+  for ((i=1; i<=count; i++)); do
     # Using picsum.photos for reliable random images
     # Adding a random seed to ensure uniqueness
     curl -s -L "https://picsum.photos/1080/720?random=$RANDOM" -o "$dir/photo_$i.jpg"

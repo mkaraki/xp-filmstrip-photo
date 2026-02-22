@@ -70,18 +70,68 @@ async fn has_subdirs(full_path: &std::path::Path) -> bool {
     false
 }
 
+fn normalize_api_path(path: &str) -> Result<&str, axum::http::StatusCode> {
+    if path.ends_with(".json") {
+        Ok(&path[..path.len() - 5])
+    } else if path.is_empty() {
+        Ok(path)
+    } else {
+        Err(axum::http::StatusCode::NOT_FOUND)
+    }
+}
+
+async fn entry_to_folder_item(
+    entry: tokio::fs::DirEntry,
+    base_path: &str,
+) -> Option<FolderItem> {
+    let name = entry.file_name().to_string_lossy().to_string();
+    if name.starts_with('.') {
+        return None;
+    }
+
+    let metadata = entry.metadata().await.ok();
+    let is_dir = metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false);
+    let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
+    let modified = metadata.as_ref()
+        .and_then(|m| m.modified().ok())
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    
+    let mut rel_path = base_path.trim_start_matches('/').to_string();
+    if !rel_path.is_empty() && !rel_path.ends_with('/') {
+        rel_path.push('/');
+    }
+    rel_path.push_str(&name);
+
+    let has_subdirs_val = if is_dir {
+        has_subdirs(&entry.path()).await
+    } else {
+        false
+    };
+
+    let mime = if !is_dir {
+        Some(mime_guess::from_path(entry.path()).first_or_octet_stream().to_string())
+    } else {
+        None
+    };
+
+    Some(FolderItem {
+        name,
+        path: rel_path,
+        is_dir,
+        mime,
+        has_subdirs: has_subdirs_val,
+        size,
+        modified,
+    })
+}
+
 async fn list_folder(
     State(state): State<Arc<AppState>>,
     Path(path): Path<String>,
 ) -> Result<Json<Vec<FolderItem>>, axum::http::StatusCode> {
-    let path = if path.ends_with(".json") {
-        &path[..path.len() - 5]
-    } else if !path.is_empty() {
-        return Err(axum::http::StatusCode::NOT_FOUND);
-    } else {
-        &path
-    };
-
+    let path = normalize_api_path(&path)?;
     let full_path = validate_path(&state.photo_root, path)
         .map_err(|_| axum::http::StatusCode::FORBIDDEN)?;
 
@@ -93,48 +143,9 @@ async fn list_folder(
     let mut dir = tokio::fs::read_dir(&full_path).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
     while let Some(entry) = dir.next_entry().await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)? {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
-            continue;
+        if let Some(item) = entry_to_folder_item(entry, path).await {
+            items.push(item);
         }
-
-        let metadata = entry.metadata().await.ok();
-        let is_dir = metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false);
-        let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
-        let modified = metadata.as_ref()
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_secs())
-            .unwrap_or(0);
-        
-        let mut rel_path = path.trim_start_matches('/').to_string();
-        if !rel_path.is_empty() {
-            if !rel_path.ends_with('/') {
-                rel_path.push('/');
-            }
-        }
-        rel_path.push_str(&name);
-
-        let mut item_has_subdirs = false;
-        if is_dir {
-            item_has_subdirs = has_subdirs(&entry.path()).await;
-        }
-
-        let mime = if !is_dir {
-            Some(mime_guess::from_path(entry.path()).first_or_octet_stream().to_string())
-        } else {
-            None
-        };
-
-        items.push(FolderItem {
-            name,
-            path: rel_path,
-            is_dir,
-            mime,
-            has_subdirs: item_has_subdirs,
-            size,
-            modified,
-        });
     }
 
     items.sort_by(|a, b| {
@@ -154,14 +165,7 @@ async fn list_dirs(
     State(state): State<Arc<AppState>>,
     Path(path): Path<String>,
 ) -> Result<Json<Vec<FolderItem>>, axum::http::StatusCode> {
-    let path = if path.ends_with(".json") {
-        &path[..path.len() - 5]
-    } else if !path.is_empty() {
-        return Err(axum::http::StatusCode::NOT_FOUND);
-    } else {
-        &path
-    };
-
+    let path = normalize_api_path(&path)?;
     let full_path = validate_path(&state.photo_root, path)
         .map_err(|_| axum::http::StatusCode::FORBIDDEN)?;
 
@@ -173,37 +177,10 @@ async fn list_dirs(
     let mut dir = tokio::fs::read_dir(&full_path).await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)?;
 
     while let Some(entry) = dir.next_entry().await.map_err(|_| axum::http::StatusCode::INTERNAL_SERVER_ERROR)? {
-        let name = entry.file_name().to_string_lossy().to_string();
-        if name.starts_with('.') {
-            continue;
-        }
-
-        let metadata = entry.metadata().await.ok();
-        if metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false) {
-            let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
-            let modified = metadata.as_ref()
-                .and_then(|m| m.modified().ok())
-                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                .map(|d| d.as_secs())
-                .unwrap_or(0);
-
-            let mut rel_path = path.trim_start_matches('/').to_string();
-            if !rel_path.is_empty() {
-                if !rel_path.ends_with('/') {
-                    rel_path.push('/');
-                }
+        if let Some(item) = entry_to_folder_item(entry, path).await {
+            if item.is_dir {
+                items.push(item);
             }
-            rel_path.push_str(&name);
-
-            items.push(FolderItem {
-                name,
-                path: rel_path,
-                is_dir: true,
-                mime: None,
-                has_subdirs: has_subdirs(&entry.path()).await,
-                size,
-                modified,
-            });
         }
     }
 
