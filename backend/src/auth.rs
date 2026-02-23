@@ -127,7 +127,7 @@ pub async fn basic_auth_middleware(
         return next.run(req).await;
     }
 
-    let auth_header = req
+    let mut authenticated = false;
     
     if let Some(auth_header) = req.headers().get(header::AUTHORIZATION).and_then(|h| h.to_str().ok()) {
         if state.verify(auth_header) {
@@ -189,4 +189,204 @@ pub async fn logout_handler() -> impl IntoResponse {
         [(header::SET_COOKIE, cookie)],
         Json(serde_json::json!({ "status": "ok" }))
     ).into_response()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
+
+    /// Helper function to create a temporary htpasswd file
+    fn create_temp_htpasswd(content: &str) -> NamedTempFile {
+        let mut file = NamedTempFile::new().unwrap();
+        file.write_all(content.as_bytes()).unwrap();
+        file.flush().unwrap();
+        file
+    }
+
+    #[test]
+    fn test_authstate_new() {
+        let state = AuthState::new("nonexistent.htpasswd".to_string());
+        assert_eq!(state.htpasswd_path, "nonexistent.htpasswd");
+    }
+
+    #[test]
+    fn test_is_enabled_when_file_exists() {
+        let file = create_temp_htpasswd("user:password\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+        assert!(state.is_enabled());
+    }
+
+    #[test]
+    fn test_is_enabled_when_file_not_exists() {
+        let state = AuthState::new("nonexistent.htpasswd".to_string());
+        assert!(!state.is_enabled());
+    }
+
+    #[test]
+    fn test_verify_with_plain_text_password() {
+        let file = create_temp_htpasswd("testuser:testpass\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        // Create Basic Auth header: base64("testuser:testpass")
+        let credentials = STANDARD.encode("testuser:testpass");
+        let auth_header = format!("Basic {}", credentials);
+
+        assert!(state.verify(&auth_header));
+    }
+
+    #[test]
+    fn test_verify_with_plain_text_password_without_basic_prefix() {
+        let file = create_temp_htpasswd("testuser:testpass\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        // Just the base64 encoded credentials without "Basic " prefix
+        let credentials = STANDARD.encode("testuser:testpass");
+
+        assert!(state.verify(&credentials));
+    }
+
+    #[test]
+    fn test_verify_with_bcrypt_password() {
+        // bcrypt hash for "testpass" with cost 4 (lower cost for faster tests)
+        let bcrypt_hash = bcrypt::hash("testpass", 4).unwrap();
+        let content = format!("testuser:{}\n", bcrypt_hash);
+        let file = create_temp_htpasswd(&content);
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        let credentials = STANDARD.encode("testuser:testpass");
+        let auth_header = format!("Basic {}", credentials);
+
+        assert!(state.verify(&auth_header));
+    }
+
+    #[test]
+    fn test_verify_with_wrong_password() {
+        let file = create_temp_htpasswd("testuser:correctpass\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        let credentials = STANDARD.encode("testuser:wrongpass");
+        let auth_header = format!("Basic {}", credentials);
+
+        assert!(!state.verify(&auth_header));
+    }
+
+    #[test]
+    fn test_verify_with_wrong_username() {
+        let file = create_temp_htpasswd("testuser:testpass\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        let credentials = STANDARD.encode("wronguser:testpass");
+        let auth_header = format!("Basic {}", credentials);
+
+        assert!(!state.verify(&auth_header));
+    }
+
+    #[test]
+    fn test_verify_with_invalid_base64() {
+        let file = create_temp_htpasswd("testuser:testpass\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        let auth_header = "Basic invalid!!!base64";
+
+        assert!(!state.verify(auth_header));
+    }
+
+    #[test]
+    fn test_verify_with_malformed_credentials() {
+        let file = create_temp_htpasswd("testuser:testpass\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        // Credentials without colon separator
+        let credentials = STANDARD.encode("testusernocolon");
+        let auth_header = format!("Basic {}", credentials);
+
+        assert!(!state.verify(&auth_header));
+    }
+
+    #[test]
+    fn test_verify_with_multiple_users() {
+        let file = create_temp_htpasswd("user1:pass1\nuser2:pass2\nuser3:pass3\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        // Verify each user
+        let creds1 = STANDARD.encode("user1:pass1");
+        assert!(state.verify(&format!("Basic {}", creds1)));
+
+        let creds2 = STANDARD.encode("user2:pass2");
+        assert!(state.verify(&format!("Basic {}", creds2)));
+
+        let creds3 = STANDARD.encode("user3:pass3");
+        assert!(state.verify(&format!("Basic {}", creds3)));
+    }
+
+    #[test]
+    fn test_verify_with_empty_htpasswd() {
+        let file = create_temp_htpasswd("");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        let credentials = STANDARD.encode("user:pass");
+        let auth_header = format!("Basic {}", credentials);
+
+        assert!(!state.verify(&auth_header));
+    }
+
+    #[test]
+    fn test_verify_with_url_safe_base64() {
+        let file = create_temp_htpasswd("testuser:testpass\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        // Use URL_SAFE encoding
+        let credentials = URL_SAFE.encode("testuser:testpass");
+        let auth_header = format!("Basic {}", credentials);
+
+        assert!(state.verify(&auth_header));
+    }
+
+    #[test]
+    fn test_verify_case_insensitive_basic_prefix() {
+        let file = create_temp_htpasswd("testuser:testpass\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        let credentials = STANDARD.encode("testuser:testpass");
+        
+        // Test with different cases
+        assert!(state.verify(&format!("basic {}", credentials)));
+        assert!(state.verify(&format!("BASIC {}", credentials)));
+        assert!(state.verify(&format!("Basic {}", credentials)));
+    }
+
+    #[test]
+    fn test_reload_if_needed_with_nonexistent_file() {
+        let state = AuthState::new("nonexistent.htpasswd".to_string());
+        // This should not panic
+        state.reload_if_needed();
+        assert!(!state.is_enabled());
+    }
+
+    #[test]
+    fn test_htpasswd_with_colons_in_password() {
+        // Password containing colons should work with splitn(2, ':')
+        let file = create_temp_htpasswd("testuser:pass:with:colons\n");
+        let path = file.path().to_str().unwrap().to_string();
+        let state = AuthState::new(path);
+
+        let credentials = STANDARD.encode("testuser:pass:with:colons");
+        let auth_header = format!("Basic {}", credentials);
+
+        assert!(state.verify(&auth_header));
+    }
 }
