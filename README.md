@@ -4,6 +4,9 @@
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/e942dcdec1094503aebaee7c873ac719)](https://app.codacy.com/gh/mkaraki/xp-filmstrip-photo?utm_source=github.com&utm_medium=referral&utm_content=mkaraki/xp-filmstrip-photo&utm_campaign=Badge_Grade)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=mkaraki_xp-filmstrip-photo&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=mkaraki_xp-filmstrip-photo)
 
+<img width="1332" height="883" alt="image" src="https://github.com/user-attachments/assets/6695526e-e0ad-4bd9-ad92-38a082dbd960" />
+
+
 A high-fidelity Windows XP "Luna" style web-based image viewer and file explorer.
 
 > [!IMPORTANT]
