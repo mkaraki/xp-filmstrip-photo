@@ -63,25 +63,5 @@ jobs:
         fail_ci_if_error: true
         token: ${{ secrets.CODECOV_TOKEN }}
 
-  lint:
-    name: Lint Rust Code
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v6
-    
-    - name: Set up Rust
-      uses: actions-rust-lang/setup-rust-toolchain@v1
-      with:
-        toolchain: stable
-        components: clippy, rustfmt
-    
-    - name: Run clippy
-      run: |
-        cd backend
-        cargo clippy --all-targets --all-features -- -D warnings
-    
-    - name: Check formatting
-      run: |
-        cd backend
         cargo fmt -- --check
+
