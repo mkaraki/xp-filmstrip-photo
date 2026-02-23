@@ -1,0 +1,60 @@
+name: Frontend E2E Tests
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v6
+
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+
+    - name: Set up Rust
+      uses: actions-rust-lang/setup-rust-toolchain@v1
+      with:
+        toolchain: stable
+
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        bun install --frozen-lockfile
+
+    - name: Build frontend static output
+      run: |
+        cd frontend
+        bun run generate
+
+    - name: Start backend server
+      env:
+        PHOTO_ROOT: ../fixtures
+        PORT: "8080"
+      run: |
+        mkdir fixtures
+        cd backend
+        nohup cargo run --release > /tmp/backend.log 2>&1 &
+
+    - name: Wait for backend startup
+      run: |
+        for i in {1..60}; do
+          if curl -fsS http://127.0.0.1:8080 >/dev/null; then
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "Backend failed to start in time"
+        cat /tmp/backend.log || true
+        exit 1
+
+    - name: Run Cypress E2E tests
+      run: |
+        cd frontend
+        bunx cypress run --browser electron
