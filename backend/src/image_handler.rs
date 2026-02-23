@@ -129,3 +129,103 @@ async fn create_thumbnail_data(full_path: &std::path::Path) -> Result<Vec<u8>, S
     Ok(buffer.into_inner())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::UNIX_EPOCH;
+
+    #[test]
+    fn test_get_cache_params() {
+        let path = PathBuf::from("/test/image.jpg");
+        let modified_time = UNIX_EPOCH + std::time::Duration::from_secs(1234567890);
+        
+        let (cache_path, last_modified) = get_cache_params(&path, modified_time);
+        
+        // Check that cache path starts with .cache/thumbs
+        assert!(cache_path.starts_with(".cache/thumbs"));
+        
+        // Check that cache path has .jpg extension
+        assert_eq!(cache_path.extension().and_then(|s| s.to_str()), Some("jpg"));
+        
+        // Check that last_modified is not empty
+        assert!(!last_modified.is_empty());
+    }
+
+    #[test]
+    fn test_get_cache_params_different_paths_different_cache() {
+        let path1 = PathBuf::from("/test/image1.jpg");
+        let path2 = PathBuf::from("/test/image2.jpg");
+        let modified_time = UNIX_EPOCH + std::time::Duration::from_secs(1234567890);
+        
+        let (cache_path1, _) = get_cache_params(&path1, modified_time);
+        let (cache_path2, _) = get_cache_params(&path2, modified_time);
+        
+        // Different paths should have different cache files
+        assert_ne!(cache_path1, cache_path2);
+    }
+
+    #[test]
+    fn test_get_cache_params_different_times_different_cache() {
+        let path = PathBuf::from("/test/image.jpg");
+        let time1 = UNIX_EPOCH + std::time::Duration::from_secs(1000);
+        let time2 = UNIX_EPOCH + std::time::Duration::from_secs(2000);
+        
+        let (cache_path1, last_modified1) = get_cache_params(&path, time1);
+        let (cache_path2, last_modified2) = get_cache_params(&path, time2);
+        
+        // Same path but different modification times should have different cache files
+        assert_ne!(cache_path1, cache_path2);
+        assert_ne!(last_modified1, last_modified2);
+    }
+
+    #[test]
+    fn test_get_cache_params_same_input_same_output() {
+        let path = PathBuf::from("/test/image.jpg");
+        let modified_time = UNIX_EPOCH + std::time::Duration::from_secs(1234567890);
+        
+        let (cache_path1, last_modified1) = get_cache_params(&path, modified_time);
+        let (cache_path2, last_modified2) = get_cache_params(&path, modified_time);
+        
+        // Same inputs should produce same outputs (deterministic)
+        assert_eq!(cache_path1, cache_path2);
+        assert_eq!(last_modified1, last_modified2);
+    }
+
+    #[test]
+    fn test_get_headers() {
+        let last_modified = "Wed, 21 Oct 2015 07:28:00 GMT";
+        let headers = get_headers(last_modified);
+        
+        assert_eq!(headers.len(), 3);
+        
+        // Check content type
+        assert_eq!(headers[0].0, header::CONTENT_TYPE);
+        assert_eq!(headers[0].1, "image/jpeg");
+        
+        // Check last modified
+        assert_eq!(headers[1].0, header::LAST_MODIFIED);
+        assert_eq!(headers[1].1, last_modified);
+        
+        // Check cache control
+        assert_eq!(headers[2].0, header::CACHE_CONTROL);
+        assert_eq!(headers[2].1, "public, max-age=31536000");
+    }
+
+    #[test]
+    fn test_cache_path_uses_sha256() {
+        let path = PathBuf::from("/test/image.jpg");
+        let modified_time = UNIX_EPOCH + std::time::Duration::from_secs(1234567890);
+        
+        let (cache_path, _) = get_cache_params(&path, modified_time);
+        let filename = cache_path.file_name().unwrap().to_str().unwrap();
+        
+        // SHA256 produces 64 hex characters + .jpg extension
+        assert_eq!(filename.len(), 68); // 64 + 4 for ".jpg"
+        assert!(filename.ends_with(".jpg"));
+        
+        // Check that it's valid hex (all chars before .jpg should be 0-9a-f)
+        let hex_part = &filename[..64];
+        assert!(hex_part.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+}
+

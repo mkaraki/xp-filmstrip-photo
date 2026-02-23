@@ -16,13 +16,14 @@
             {{ $t('explorer.generating_preview') }}
           </div>
           
-          <template v-if="isSelectedImage">
+          <template v-if="isSelectedImage && !previewLoadFailed">
             <img 
               :src="'/' + imageForPreview.path" 
               class="large-image"
               :class="{ 'is-loading': isLoading }"
               :style="imageStyle"
               @load="onImageLoad"
+              @error="onImageError"
               @dblclick="openOriginal(imageForPreview)"
               :alt="imageForPreview.name"
             />
@@ -124,6 +125,7 @@ const loadingTimer = ref(null);
 const imageForPreview = ref(null);
 const thumbErrors = ref(new Set());
 const thumbLoadedStates = ref(new Set());
+const previewLoadFailed = ref(false);
 
 const isSelectedImage = computed(() => {
   return imageForPreview.value && !imageForPreview.value.is_dir && imageForPreview.value.mime?.startsWith('image/');
@@ -152,8 +154,15 @@ const imageStyle = computed(() => {
 const onImageLoad = (event) => {
   naturalWidth.value = event.target.naturalWidth;
   naturalHeight.value = event.target.naturalHeight;
+  previewLoadFailed.value = false;
   
   // Clear any pending timer and hide loading indicator
+  if (loadingTimer.value) clearTimeout(loadingTimer.value);
+  isLoading.value = false;
+};
+
+const onImageError = () => {
+  previewLoadFailed.value = true;
   if (loadingTimer.value) clearTimeout(loadingTimer.value);
   isLoading.value = false;
 };
@@ -181,6 +190,7 @@ const handleSelect = (item) => {
   // 3. Set a timer to actually load the preview
   loadingTimer.value = setTimeout(() => {
     imageForPreview.value = item; // This triggers the download
+    previewLoadFailed.value = false;
     rotation.value = 0;
     naturalWidth.value = 0;
     naturalHeight.value = 0;
@@ -269,6 +279,7 @@ watch(currentItems, () => {
 watch(selectedImage, (newImg) => {
   if (!newImg) {
     imageForPreview.value = null;
+    previewLoadFailed.value = false;
     return;
   }
   // Scroll thumbnail into view
@@ -288,6 +299,7 @@ onMounted(() => {
       // sync the preview immediately and stop this special watcher.
       if (loadingTimer.value) clearTimeout(loadingTimer.value);
       imageForPreview.value = newImg;
+      previewLoadFailed.value = false;
       if (newImg && !newImg.is_dir && newImg.mime?.startsWith('image/')) {
         isLoading.value = true;
       }
