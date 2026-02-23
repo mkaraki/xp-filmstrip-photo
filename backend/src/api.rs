@@ -226,3 +226,104 @@ async fn get_version() -> Json<VersionInfo> {
         build_time: env!("BUILD_TIME"),
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalize_api_path_with_json_extension() {
+        let result = normalize_api_path("test/path.json");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "test/path");
+    }
+
+    #[test]
+    fn test_normalize_api_path_empty() {
+        let result = normalize_api_path("");
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), "");
+    }
+
+    #[test]
+    fn test_normalize_api_path_without_json_extension() {
+        let result = normalize_api_path("test/path");
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err(), axum::http::StatusCode::NOT_FOUND);
+    }
+
+    #[test]
+    fn test_normalize_api_path_with_txt_extension() {
+        let result = normalize_api_path("test/path.txt");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_folder_item_creation() {
+        let item = FolderItem {
+            name: "test.jpg".to_string(),
+            path: "test/test.jpg".to_string(),
+            is_dir: false,
+            mime: Some("image/jpeg".to_string()),
+            has_subdirs: false,
+            size: 1024,
+            modified: 1234567890,
+        };
+
+        assert_eq!(item.name, "test.jpg");
+        assert_eq!(item.path, "test/test.jpg");
+        assert!(!item.is_dir);
+        assert_eq!(item.mime, Some("image/jpeg".to_string()));
+        assert!(!item.has_subdirs);
+        assert_eq!(item.size, 1024);
+        assert_eq!(item.modified, 1234567890);
+    }
+
+    #[test]
+    fn test_folder_item_clone() {
+        let item = FolderItem {
+            name: "test.jpg".to_string(),
+            path: "test/test.jpg".to_string(),
+            is_dir: false,
+            mime: Some("image/jpeg".to_string()),
+            has_subdirs: false,
+            size: 1024,
+            modified: 1234567890,
+        };
+
+        let cloned = item.clone();
+        assert_eq!(item.name, cloned.name);
+        assert_eq!(item.path, cloned.path);
+        assert_eq!(item.is_dir, cloned.is_dir);
+    }
+
+    #[test]
+    fn test_file_metadata_creation() {
+        let metadata = FileMetadata {
+            width: 1920,
+            height: 1080,
+        };
+
+        assert_eq!(metadata.width, 1920);
+        assert_eq!(metadata.height, 1080);
+    }
+
+    #[tokio::test]
+    async fn test_get_version() {
+        let version_info = get_version().await;
+        assert!(!version_info.0.version.is_empty());
+        assert!(!version_info.0.build_time.is_empty());
+    }
+
+    #[test]
+    fn test_version_info_serialization() {
+        let version = VersionInfo {
+            version: "0.1.0",
+            build_time: "2024-01-01",
+        };
+
+        let json = serde_json::to_string(&version).unwrap();
+        assert!(json.contains("0.1.0"));
+        assert!(json.contains("2024-01-01"));
+    }
+}

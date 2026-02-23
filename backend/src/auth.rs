@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use base64::{engine::general_purpose::{self, STANDARD, URL_SAFE}, Engine as _};
+use base64::{engine::general_purpose::{STANDARD, URL_SAFE}, Engine as _};
 use std::fs;
 use std::path::Path;
 use std::sync::RwLock;

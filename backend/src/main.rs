@@ -209,3 +209,91 @@ pub fn validate_path(root: &StdPath, sub_path: &str) -> Result<PathBuf, ()> {
         Err(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_validate_path_simple() {
+        let root = Path::new("/test/root");
+        let result = validate_path(root, "subdir/file.txt");
+        
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with(root));
+        assert!(path.ends_with("file.txt"));
+    }
+
+    #[test]
+    fn test_validate_path_empty() {
+        let root = Path::new("/test/root");
+        let result = validate_path(root, "");
+        
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), root);
+    }
+
+    #[test]
+    fn test_validate_path_with_parent_dir() {
+        let root = Path::new("/test/root");
+        let result = validate_path(root, "subdir/../file.txt");
+        
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with(root));
+    }
+
+    #[test]
+    fn test_validate_path_prevent_escape_at_root() {
+        let root = Path::new("/test/root");
+        let result = validate_path(root, "../..");
+        
+        // Should still be within root (can't escape)
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap(), root);
+    }
+
+    #[test]
+    fn test_validate_path_with_url_encoding() {
+        let root = Path::new("/test/root");
+        let result = validate_path(root, "sub%20dir/file.txt");
+        
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with(root));
+    }
+
+    #[test]
+    fn test_validate_path_with_current_dir() {
+        let root = Path::new("/test/root");
+        let result = validate_path(root, "./subdir/./file.txt");
+        
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with(root));
+    }
+
+    #[test]
+    fn test_validate_path_multiple_subdirs() {
+        let root = Path::new("/test/root");
+        let result = validate_path(root, "a/b/c/d/file.txt");
+        
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with(root));
+        assert!(path.ends_with("file.txt"));
+    }
+
+    #[test]
+    fn test_validate_path_with_dots_in_filename() {
+        let root = Path::new("/test/root");
+        let result = validate_path(root, "file.test.txt");
+        
+        assert!(result.is_ok());
+        let path = result.unwrap();
+        assert!(path.starts_with(root));
+        assert!(path.ends_with("file.test.txt"));
+    }
+}
