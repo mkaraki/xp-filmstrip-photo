@@ -41,8 +41,13 @@ export default defineNuxtConfig({
       });
       pages.push({
         name: 'custom-about',
-        path: '/.__about',
-        file: '~/pages/about-internal.vue'
+        path: '/.__ui/about',
+        file: '~/pages/.__ui/about.vue'
+      });
+      pages.push({
+        name: 'custom-login',
+        path: '/.__ui/login',
+        file: '~/pages/.__ui/login.vue'
       });
     }
   }

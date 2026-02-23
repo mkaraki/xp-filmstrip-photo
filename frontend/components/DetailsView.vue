@@ -19,7 +19,7 @@
           @dblclick="handleDoubleClick(item)"
         >
           <td class="col-name">
-            <span class="row-icon">{{ item.is_dir ? '📁' : '📄' }}</span>
+            <span class="row-icon">{{ getIconForItem(item) }}</span>
             <span class="row-text">{{ item.name }}</span>
           </td>
           <td class="col-size">{{ item.is_dir ? '' : friendlySize(item.size) }}</td>
@@ -32,7 +32,10 @@
 </template>
 
 <script setup>
+import { useFileType } from '~/composables/useFileType';
+
 const { currentItems, selectedImage, selectImage } = useExplorer();
+const { getIconForItem } = useFileType();
 const router = useRouter();
 const { t } = useI18n();
 const viewRoot = ref(null);

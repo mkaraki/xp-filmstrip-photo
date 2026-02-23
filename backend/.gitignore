@@ -23,3 +23,7 @@ target
 .env
 
 .cache
+
+.htpasswd
+
+fixtures

@@ -37,7 +37,7 @@ const currentViewComponent = computed(() => {
 });
 
 const fetchItems = async () => {
-  if (currentPath.value.startsWith('.__')) {
+  if (route.path.startsWith('/.__')) {
     loading.value = false;
     return;
   }
@@ -45,13 +45,19 @@ const fetchItems = async () => {
   try {
     const apiPath = currentPath.value ? `/${currentPath.value}` : '';
     const res = await fetchApi(`/.__api/list${apiPath}`);
+    if (!res.ok) {
+      if (res.status === 401) {
+        setItems([]);
+        selectImage(null);
+      }
+      return;
+    }
     const data = await res.json();
     setItems(data);
     
-    // Auto-select first item
+    // Auto-select first item (any type)
     if (data.length > 0) {
-      const firstImg = data.find(i => !i.is_dir && i.mime?.startsWith('image/'));
-      selectImage(firstImg || data[0]);
+      selectImage(data[0]);
     } else {
       selectImage(null);
     }

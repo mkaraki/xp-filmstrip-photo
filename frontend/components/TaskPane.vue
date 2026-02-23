@@ -83,6 +83,7 @@
 
 <script setup>
 const { selectedImage, selectedMetadata, currentItems, toggleSlideshow } = useExplorer();
+const { openLoginDialog } = useAuth();
 const router = useRouter();
 const route = useRoute();
 const { t } = useI18n();
@@ -180,7 +181,12 @@ const shareFolder = async () => {
   }
 };
 
-const goToRoot = () => router.push('/');
+const goToRoot = () => {
+  if (currentPath.value === '' && currentItems.value.length === 0) {
+    openLoginDialog();
+  }
+  router.push('/');
+};
 const goToParent = () => {
   if (parentPathInfo.value) {
     router.push('/' + parentPathInfo.value.path);

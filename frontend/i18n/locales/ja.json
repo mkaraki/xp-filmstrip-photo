@@ -6,7 +6,11 @@
     "favorites": "お気に入り(A)",
     "tools": "ツール(T)",
     "help": "ヘルプ(H)",
-    "about": "バージョン情報(A)"
+    "about": "バージョン情報(A)",
+    "disconnect": "ネットワーク ドライブの切断(D)...",
+    "toolbars": "ツールバー(T)",
+    "standard_buttons": "標準のボタン(S)",
+    "address_bar": "アドレス バー(A)"
   },
   "toolbar": {
     "back": "戻る",
@@ -44,7 +48,8 @@
     "next": "次の項目",
     "rotate_cw": "時計回りに回転",
     "rotate_ccw": "反時計回りに回転",
-    "loading": "読み込み中..."
+    "loading": "読み込み中...",
+    "generating_preview": "プレビューを生成しています…"
   },
   "details_cols": {
     "name": "名前",
@@ -58,5 +63,15 @@
     "copyright": "Copyright (C) 2026 mkaraki",
     "license": "この製品は {link} の条件の下でライセンスされています。",
     "memory": "このツールで使用できる物理メモリ: {memory} KB"
+  },
+  "login": {
+    "connect_to": "{hostname} に接続",
+    "connecting_to": "{hostname} に接続中",
+    "username": "ユーザー名:",
+    "password": "パスワード:",
+    "remember": "パスワードを記憶する",
+    "ok": "OK",
+    "cancel": "キャンセル",
+    "failed": "ログインに失敗しました。認証情報を確認してください。"
   }
 }

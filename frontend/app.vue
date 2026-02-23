@@ -1,6 +1,6 @@
 <template>
   <NuxtLayout>
-    <div class="app-window" @click="closeDropdowns" v-if="!isAboutPage">
+    <div class="app-window" @click="closeDropdowns" v-if="!isAboutPage && !isLoginPage">
       <!-- XP Menu Bar -->
       <nav class="xp-menu-bar">
         <div class="menu-items">
@@ -11,6 +11,18 @@
           <div class="menu-item-group">
             <div class="menu-item" :class="{ 'is-active': showViewMenuDropdown }" @click.stop="toggleViewMenuDropdown">{{ $t('menu.view') }}</div>
             <div v-if="showViewMenuDropdown" class="xp-menu-dropdown">
+              <div class="dropdown-item has-submenu" @mouseenter="showToolbarsSubmenu = true" @mouseleave="showToolbarsSubmenu = false">
+                {{ $t('menu.toolbars') }} <span class="submenu-arrow">▶</span>
+                <div v-if="showToolbarsSubmenu" class="xp-menu-dropdown submenu">
+                  <div class="dropdown-item" @click="showStandardButtons = !showStandardButtons">
+                    <span class="check-mark">{{ showStandardButtons ? '✓' : '' }}</span> {{ $t('menu.standard_buttons') }}
+                  </div>
+                  <div class="dropdown-item" @click="showAddressBar = !showAddressBar">
+                    <span class="check-mark">{{ showAddressBar ? '✓' : '' }}</span> {{ $t('menu.address_bar') }}
+                  </div>
+                </div>
+              </div>
+              <div class="dropdown-separator"></div>
               <div class="dropdown-item has-submenu" @mouseenter="showLangSubmenu = true" @mouseleave="showLangSubmenu = false">
                 Language <span class="submenu-arrow">▶</span>
                 <div v-if="showLangSubmenu" class="xp-menu-dropdown submenu">
@@ -26,7 +38,15 @@
           </div>
 
           <div class="menu-item disabled">{{ $t('menu.favorites') }}</div>
-          <div class="menu-item disabled">{{ $t('menu.tools') }}</div>
+          
+          <!-- Tools Menu -->
+          <div class="menu-item-group">
+            <div class="menu-item" :class="{ 'is-active': showToolsDropdown }" @click.stop="toggleToolsDropdown">{{ $t('menu.tools') }}</div>
+            <div v-if="showToolsDropdown" class="xp-menu-dropdown">
+              <div class="dropdown-item" @click="handleLogout">{{ $t('menu.disconnect') }}</div>
+            </div>
+          </div>
+
           <div class="menu-item-group">
             <div class="menu-item" :class="{ 'is-active': showHelpDropdown }" @click.stop="toggleHelpDropdown">{{ $t('menu.help') }}</div>
             <div v-if="showHelpDropdown" class="xp-menu-dropdown">
@@ -40,8 +60,15 @@
       </nav>
 
       <!-- XP Toolbar -->
-      <header class="xp-toolbar">
-        <div class="nav-buttons">
+      <header 
+        v-if="showStandardButtons || showAddressBar" 
+        class="xp-toolbar"
+        :class="{
+          'address-only': !showStandardButtons && showAddressBar,
+          'both-visible': showStandardButtons && showAddressBar
+        }"
+      >
+        <div v-if="showStandardButtons" class="nav-buttons">
           <div class="split-btn-group">
             <button class="xp-tool-btn green-circle" @click="goBack" :disabled="!canGoBack" :title="$t('toolbar.back')">
               <span class="icon-circle">←</span> <span class="btn-text">{{ $t('toolbar.back') }}</span>
@@ -113,7 +140,7 @@
           </div>
         </div>
         
-        <div class="address-bar-row">
+        <div v-if="showAddressBar" class="address-bar-row">
           <label>{{ $t('toolbar.address') }}</label>
           <div class="address-input-container">
             <span class="address-icon">{{ isRoot ? '🖥️' : '📁' }}</span>
@@ -167,15 +194,28 @@ const { historyStack, currentIndex, push, backItems, forwardItems } = useHistory
 const { viewMode, setViewMode } = useExplorer();
 
 const showFolders = ref(true);
+const showStandardButtons = ref(true);
+const showAddressBar = ref(true);
 const addressInput = ref('/');
 const showBackDropdown = ref(false);
 const showForwardDropdown = ref(false);
 const showViewDropdown = ref(false);
 const showViewMenuDropdown = ref(false);
+const showToolbarsSubmenu = ref(false);
 const showLangSubmenu = ref(false);
 const showHelpDropdown = ref(false);
+const showToolsDropdown = ref(false);
 
-const isAboutPage = computed(() => route.path === '/.__about');
+const { logout } = useAuth();
+const handleLogout = () => {
+  if (confirm('Are you sure you want to disconnect from the network drive?')) {
+    logout();
+  }
+  closeDropdowns();
+};
+
+const isAboutPage = computed(() => route.path.startsWith('/.__ui/about'));
+const isLoginPage = computed(() => route.path.startsWith('/.__ui/login'));
 
 const canGoBack = computed(() => currentIndex.value > 0);
 const canGoForward = computed(() => currentIndex.value < historyStack.value.length - 1);
@@ -240,12 +280,19 @@ const toggleHelpDropdown = () => {
   showHelpDropdown.value = !current;
 };
 
+const toggleToolsDropdown = () => {
+  const current = showToolsDropdown.value;
+  closeDropdowns();
+  showToolsDropdown.value = !current;
+};
+
 const closeDropdowns = () => {
   showBackDropdown.value = false;
   showForwardDropdown.value = false;
   showViewDropdown.value = false;
   showViewMenuDropdown.value = false;
   showHelpDropdown.value = false;
+  showToolsDropdown.value = false;
   showLangSubmenu.value = false;
 };
 
@@ -255,7 +302,7 @@ const changeLocale = (code) => {
 };
 
 const openAbout = () => {
-  window.open('/.__about', 'About', 'width=450,height=250,resizable=no,scrollbars=no,menubar=no,location=no,status=no,toolbar=no');
+  window.open('/.__ui/about', 'About', 'width=450,height=250,resizable=no,scrollbars=no,menubar=no,location=no,status=no,toolbar=no');
   closeDropdowns();
 };
 
@@ -290,9 +337,18 @@ const goUp = () => {
 };
 
 onMounted(() => {
-  const saved = localStorage.getItem('xp-show-folders');
-  if (saved !== null) showFolders.value = saved === 'true';
+  const savedFolders = localStorage.getItem('xp-show-folders');
+  if (savedFolders !== null) showFolders.value = savedFolders === 'true';
+
+  const savedButtons = localStorage.getItem('xp-show-standard-buttons');
+  if (savedButtons !== null) showStandardButtons.value = savedButtons === 'true';
+
+  const savedAddress = localStorage.getItem('xp-show-address-bar');
+  if (savedAddress !== null) showAddressBar.value = savedAddress === 'true';
 });
+
+watch(showStandardButtons, (val) => localStorage.setItem('xp-show-standard-buttons', val));
+watch(showAddressBar, (val) => localStorage.setItem('xp-show-address-bar', val));
 
 const toggleFolders = () => {
   showFolders.value = !showFolders.value;
@@ -301,7 +357,6 @@ const toggleFolders = () => {
 </script>
 
 <style>
-/* (Same styles as before, adding submenu specific ones) */
 body, html {
   margin: 0;
   padding: 0;
@@ -310,6 +365,12 @@ body, html {
   font-size: 13px;
   overflow: hidden;
   background-color: #ECE9D8;
+}
+
+.dropdown-separator {
+  height: 1px;
+  background-color: #ACA899;
+  margin: 4px 1px;
 }
 
 /* XP Luna Blue Scrollbar Styling */
@@ -504,6 +565,12 @@ body, html {
   gap: 2px;
 }
 
+/* Hide the main toolbar's bottom border if only the address bar is visible, 
+   as the address bar will have its own top border. */
+.xp-toolbar:has(.address-bar-row:only-child) {
+  border-bottom: none;
+}
+
 .nav-buttons {
   display: flex;
   align-items: center;
@@ -664,6 +731,10 @@ body, html {
   outline: none;
   font-family: "MS UI Gothic", sans-serif;
   font-size: 13px;
+}
+
+.address-bar-row.with-top-border {
+  border-top: 1px solid #ACA899;
 }
 
 .go-btn-xp {

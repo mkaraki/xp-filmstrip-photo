@@ -24,7 +24,7 @@
           </div>
         </div>
         <div class="xp-dialog-footer">
-          <button class="xp-button" @click="close">OK</button>
+          <XpPushButton @click="close">OK</XpPushButton>
         </div>
       </div>
     </div>
@@ -32,6 +32,8 @@
 </template>
 
 <script setup>
+import XpPushButton from './XpPushButton.vue';
+
 const props = defineProps({
   modelValue: Boolean
 });
@@ -149,19 +151,5 @@ const close = () => {
 .xp-dialog-footer {
   display: flex;
   justify-content: flex-end;
-}
-
-.xp-button {
-  background-color: #ECE9D8;
-  border: 1px solid #716F64;
-  padding: 4px 20px;
-  cursor: pointer;
-  box-shadow: inset 1px 1px #fff, 1px 1px #716F64;
-  font-family: "MS UI Gothic", sans-serif;
-}
-
-.xp-button:active {
-  box-shadow: inset 1px 1px #716F64;
-  transform: translate(1px, 1px);
 }
 </style>
