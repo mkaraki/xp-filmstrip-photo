@@ -6,7 +6,11 @@
     "favorites": "Favorites",
     "tools": "Tools",
     "help": "Help",
-    "about": "About this tool"
+    "about": "About this tool",
+    "disconnect": "Disconnect Network Drive...",
+    "toolbars": "Toolbars",
+    "standard_buttons": "Standard Buttons",
+    "address_bar": "Address Bar"
   },
   "toolbar": {
     "back": "Back",
@@ -44,7 +48,8 @@
     "next": "Next Item",
     "rotate_cw": "Rotate Clockwise",
     "rotate_ccw": "Rotate Counterclockwise",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "generating_preview": "Generating Preview..."
   },
   "details_cols": {
     "name": "Name",
@@ -58,5 +63,15 @@
     "copyright": "Copyright (C) 2026 mkaraki",
     "license": "This product is licensed under the terms of the {link}.",
     "memory": "Physical memory available to this tool: {memory} KB"
+  },
+  "login": {
+    "connect_to": "Connect to {hostname}",
+    "connecting_to": "Connecting to {hostname}",
+    "username": "User name:",
+    "password": "Password:",
+    "remember": "Remember my password",
+    "ok": "OK",
+    "cancel": "Cancel",
+    "failed": "Login failed. Please check your credentials."
   }
 }

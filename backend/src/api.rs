@@ -1,6 +1,6 @@
 use axum::{
     extract::{Path, State},
-    routing::get,
+    routing::{get, post},
     Json, Router,
 };
 use serde::{Deserialize, Serialize};
@@ -8,6 +8,7 @@ use std::sync::Arc;
 use crate::AppState;
 use crate::validate_path;
 use crate::image_handler;
+use crate::auth;
 use image::GenericImageView;
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -44,6 +45,9 @@ pub fn router(_state: Arc<AppState>) -> Router<Arc<AppState>> {
         .route("/list.json", get(list_root_folder))
         .route("/dirs.json", get(list_root_dirs))
         .route("/thumb", get(image_handler::get_thumbnail_root))
+
+        .route("/auth/login", post(auth::login_handler))
+        .route("/auth/logout", post(auth::logout_handler))
 }
 
 async fn list_root_folder(state: State<Arc<AppState>>) -> Result<Json<Vec<FolderItem>>, axum::http::StatusCode> {

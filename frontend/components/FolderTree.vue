@@ -31,6 +31,7 @@ const props = defineProps(['folder']);
 const route = useRoute();
 const router = useRouter();
 const { fetchApi } = useApiFetch();
+const { openLoginDialog } = useAuth();
 
 const isRootNode = computed(() => props.folder.path === '');
 const isOpen = ref(isRootNode.value);
@@ -61,7 +62,9 @@ const fetchSubDirs = async () => {
   try {
     const apiPath = props.folder.path ? `/${props.folder.path}` : '';
     const res = await fetchApi(`/.__api/dirs${apiPath}`);
-    children.value = await res.json();
+    if (res.ok) {
+      children.value = await res.json();
+    }
   } catch (err) {
     console.error('Failed to fetch dirs', err);
   } finally {
@@ -70,6 +73,9 @@ const fetchSubDirs = async () => {
 };
 
 const handleLabelClick = () => {
+  if (isRootNode.value && children.value.length === 0 && !loading.value) {
+    openLoginDialog();
+  }
   if (!isOpen.value && props.folder.has_subdirs) {
     toggleExpand();
   }

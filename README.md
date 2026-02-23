@@ -24,6 +24,7 @@ A high-fidelity Windows XP "Luna" style web-based image viewer and file explorer
 - **Internationalization (i18n)**: Fully localized in English and 日本語 (Japanese).
 - **Static Site Generation (SSG)**: A specialized script ("Pinner") to crawl the backend and generate a self-contained static version of your photo library.
 - **High Performance**: Rust-based backend for fast image resizing and SHA-256 disk caching.
+- **Authentication**: Supports BASIC based authentication.
 
 ## 🛠️ Tech Stack
 

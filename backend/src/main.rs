@@ -15,10 +15,12 @@ use httpdate::HttpDate;
 
 mod api;
 mod image_handler;
+mod auth;
 
 #[derive(Clone)]
 pub struct AppState {
     pub photo_root: PathBuf,
+    pub auth: std::sync::Arc<auth::AuthState>,
 }
 
 #[tokio::main]
@@ -32,9 +34,13 @@ async fn main() {
     }
     
     let photo_root = PathBuf::from(photo_root).canonicalize().expect("Invalid PHOTO_ROOT");
+    let htpasswd_path = env::var("HTPASSWD_PATH").unwrap_or_else(|_| ".htpasswd".to_string());
+
+    let auth_state = std::sync::Arc::new(auth::AuthState::new(htpasswd_path));
 
     let state = Arc::new(AppState {
         photo_root,
+        auth: auth_state.clone(),
     });
 
     let cors = CorsLayer::new()
@@ -42,8 +48,11 @@ async fn main() {
         .allow_methods(Any)
         .allow_headers(Any);
 
+    let api_router = api::router(state.clone())
+        .layer(axum::middleware::from_fn_with_state(auth_state.clone(), auth::basic_auth_middleware));
+
     let app = Router::new()
-        .nest("/.__api", api::router(state.clone()))
+        .nest("/.__api", api_router)
         .nest_service("/_nuxt", ServeDir::new("../frontend/.output/public/_nuxt"))
         .fallback(handle_path)
         .layer(cors)
@@ -66,6 +75,43 @@ async fn handle_path<B>(
     
     if path_str.starts_with(".__api") {
         return StatusCode::NOT_FOUND.into_response();
+    }
+
+    // Auth check if enabled, except for favicon, robots.txt and UI routes
+    let is_public = path_str == "favicon.ico" || path_str == "robots.txt" || path_str.starts_with(".__ui/");
+    if !is_public && state.auth.is_enabled() {
+        let mut authenticated = false;
+        
+        if let Some(auth_header) = headers.get(header::AUTHORIZATION).and_then(|h| h.to_str().ok()) {
+            if state.auth.verify(auth_header) {
+                authenticated = true;
+            }
+        }
+
+        if !authenticated {
+            if let Some(cookie) = headers.get(header::COOKIE).and_then(|h| h.to_str().ok()) {
+                for part in cookie.split(';') {
+                    let part = part.trim();
+                    if part.starts_with("filmstrip_auth=") {
+                        let creds = &part["filmstrip_auth=".len()..];
+                        if state.auth.verify(creds) {
+                            authenticated = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if !authenticated {
+            // Check if it's a file request or something that needs auth
+            let safe_path_res = validate_path(&state.photo_root, path_str);
+            if let Ok(safe_path) = safe_path_res {
+                if safe_path.is_file() && safe_path.starts_with(&state.photo_root) {
+                    return StatusCode::UNAUTHORIZED.into_response();
+                }
+            }
+        }
     }
 
     if path_str == "favicon.ico" || path_str == "robots.txt" {

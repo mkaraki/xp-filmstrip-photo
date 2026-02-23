@@ -15,16 +15,18 @@
     <p>{{ $t('about.memory', { memory: memoryKB }) }}</p>
     
     <div class="footer">
-      <button class="xp-dialog-btn" @click="close">OK</button>
+      <XpPushButton ref="okButton" :isDefault="true" @click="close">OK</XpPushButton>
     </div>
   </div>
 </template>
 
 <script setup>
+import XpPushButton from '~/components/XpPushButton.vue';
 definePageMeta({
   layout: 'about'
 });
 
+const okButton = ref(null);
 const { t } = useI18n();
 
 useHead({
@@ -70,6 +72,9 @@ const versionText = computed(() => {
 });
 
 onMounted(async () => {
+  if (okButton.value) {
+    okButton.value.focus();
+  }
   try {
     const res = await fetchApi('/.__api/version');
     if (res.ok) {
@@ -132,29 +137,5 @@ onMounted(async () => {
   margin-top: auto;
   display: flex;
   justify-content: flex-end;
-}
-
-.xp-dialog-btn {
-  width: 85px;
-  height: 21px;
-  background-color: #FFF;
-  border: 2px solid #316AC5;
-  border-radius: 3px;
-  font-family: "MS UI Gothic", sans-serif;
-  font-size: 12px;
-  cursor: pointer;
-  outline: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: inset 1px 1px 0px white, inset -1px -1px 0px white;
-}
-
-.xp-dialog-btn:hover {
-  border-color: #FF9900;
-}
-
-.xp-dialog-btn:active {
-  background-color: #E5E5E5;
 }
 </style>

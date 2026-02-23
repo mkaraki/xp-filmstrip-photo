@@ -12,17 +12,22 @@
       <!-- Large Preview Area -->
       <div class="preview-area" ref="previewArea">
         <div class="preview-container" ref="previewContainer">
+          <div v-if="isLoading" class="generating-preview">
+            {{ $t('explorer.generating_preview') }}
+          </div>
+          
           <template v-if="isSelectedImage">
             <img 
-              :src="'/' + selectedImage.path" 
-              class="large-image" 
+              :src="'/' + imageForPreview.path" 
+              class="large-image"
+              :class="{ 'is-loading': isLoading }"
               :style="imageStyle"
               @load="onImageLoad"
-              @dblclick="openOriginal(selectedImage)"
-              :alt="selectedImage.name"
+              @dblclick="openOriginal(imageForPreview)"
+              :alt="imageForPreview.name"
             />
           </template>
-          <div v-else class="no-preview">
+          <div v-else-if="!isLoading" class="no-preview">
              {{ $t('explorer.no_preview') }}
           </div>
         </div>
@@ -65,29 +70,31 @@
       <div class="strip-area" @wheel="handleWheel">
         <div class="strip-container" ref="stripContainer">
           <div 
-            v-for="(item, index) in currentItems" 
+            v-for="(item) in currentItems" 
             :key="item.path" 
             class="thumb-wrapper" 
             :class="{ active: selectedImage && selectedImage.path === item.path }"
-            :ref="el => { if (el) thumbRefs[index] = el }"
+            :ref="el => thumbRefs[item.path] = el"
             @click="handleSelect(item)"
             @dblclick="handleDoubleClick(item)"
           >
             <div class="thumb-img-box">
-              <template v-if="!item.is_dir && item.mime?.startsWith('image/')">
-                <img 
-                  :src="'/.__api/thumb/' + item.path" 
-                  class="thumb-image" 
-                  loading="lazy"
-                  :alt="item.name"
-                />
-              </template>
-              <template v-else-if="item.is_dir">
-                <span class="thumb-folder-icon">📁</span>
-              </template>
-              <template v-else>
-                <span class="thumb-file-icon">📄</span>
-              </template>
+              <img
+                v-if="!item.is_dir && item.mime?.startsWith('image/')"
+                :src="'/.__api/thumb/' + item.path"
+                class="thumb-image"
+                :class="{ 'is-loaded': isThumbnailLoaded(item.path) }"
+                loading="lazy"
+                @load="onThumbLoad(item.path)"
+                @error="onThumbError(item.path)"
+                :alt="item.name"
+              />
+              <!-- This placeholder layer is removed from the DOM once the image is loaded -->
+              <div v-if="!isThumbnailLoaded(item.path) || thumbErrors.has(item.path)" class="thumb-placeholder-layer">
+                <span v-if="thumbErrors.has(item.path)">🖼️</span>
+                <span v-else-if="item.mime?.startsWith('image/')">🖼️</span>
+                <span v-else>{{ getIconForItem(item) }}</span>
+              </div>
             </div>
             <div class="thumb-name">{{ item.name }}</div>
           </div>
@@ -98,10 +105,13 @@
 </template>
 
 <script setup>
+import { useFileType } from '~/composables/useFileType';
+
 const { selectedImage, selectImage, currentItems } = useExplorer();
+const { getIconForItem } = useFileType();
 const router = useRouter();
 
-const thumbRefs = ref([]);
+const thumbRefs = ref({});
 const stripContainer = ref(null);
 const previewContainer = ref(null);
 const pageRoot = ref(null);
@@ -109,10 +119,17 @@ const pageRoot = ref(null);
 const rotation = ref(0);
 const naturalWidth = ref(0);
 const naturalHeight = ref(0);
+const isLoading = ref(false);
+const loadingTimer = ref(null);
+const imageForPreview = ref(null);
+const thumbErrors = ref(new Set());
+const thumbLoadedStates = ref(new Set());
 
 const isSelectedImage = computed(() => {
-  return selectedImage.value && !selectedImage.value.is_dir && selectedImage.value.mime?.startsWith('image/');
+  return imageForPreview.value && !imageForPreview.value.is_dir && imageForPreview.value.mime?.startsWith('image/');
 });
+
+const isThumbnailLoaded = (path) => thumbLoadedStates.value.has(path);
 
 const imageStyle = computed(() => {
   if (!previewContainer.value || naturalWidth.value === 0) return { transform: `rotate(${rotation.value}deg)` };
@@ -135,27 +152,60 @@ const imageStyle = computed(() => {
 const onImageLoad = (event) => {
   naturalWidth.value = event.target.naturalWidth;
   naturalHeight.value = event.target.naturalHeight;
+  
+  // Clear any pending timer and hide loading indicator
+  if (loadingTimer.value) clearTimeout(loadingTimer.value);
+  isLoading.value = false;
+};
+
+const onThumbLoad = (path) => {
+  thumbLoadedStates.value.add(path);
+};
+
+const onThumbError = (path) => {
+  thumbErrors.value.add(path);
+  thumbLoadedStates.value.delete(path); // Ensure it's not marked as loaded
 };
 
 const handleSelect = (item) => {
+  if (selectedImage.value?.path === item.path) return;
+
+  // 1. Update the active thumbnail immediately
   selectImage(item);
-  rotation.value = 0;
-  naturalWidth.value = 0;
-  naturalHeight.value = 0;
+  
+  // 2. Clear any pending preview load
+  if (loadingTimer.value) {
+    clearTimeout(loadingTimer.value);
+  }
+
+  // 3. Set a timer to actually load the preview
+  loadingTimer.value = setTimeout(() => {
+    imageForPreview.value = item; // This triggers the download
+    rotation.value = 0;
+    naturalWidth.value = 0;
+    naturalHeight.value = 0;
+    
+    if (item && !item.is_dir && item.mime?.startsWith('image/')) {
+      isLoading.value = true;
+    } else {
+      isLoading.value = false;
+    }
+  }, 250);
 };
 
 const handleDoubleClick = (item) => {
   if (item.is_dir) {
     router.push('/' + item.path);
   } else {
-    window.open('/' + item.path, '_blank');
+    // Ensure we use the actually displayed image for this action
+    window.open('/' + imageForPreview.value.path, '_blank');
   }
 };
 
 const handleEnter = (e) => {
   if (e) e.preventDefault();
-  if (selectedImage.value) {
-    handleDoubleClick(selectedImage.value);
+  if (imageForPreview.value) {
+    handleDoubleClick(imageForPreview.value);
   }
 };
 
@@ -211,10 +261,18 @@ const handleWheel = (e) => {
   }
 };
 
+watch(currentItems, () => {
+  thumbErrors.value.clear();
+  thumbLoadedStates.value.clear(); // Clear loaded states for new folder
+});
+
 watch(selectedImage, (newImg) => {
-  if (!newImg) return;
-  const index = currentItems.value.findIndex(item => item.path === newImg.path);
-  const el = thumbRefs.value[index];
+  if (!newImg) {
+    imageForPreview.value = null;
+    return;
+  }
+  // Scroll thumbnail into view
+  const el = thumbRefs.value[newImg.path];
   if (el) {
     el.scrollIntoView({ behavior: 'auto', block: 'nearest', inline: 'center' });
   }
@@ -222,6 +280,20 @@ watch(selectedImage, (newImg) => {
 
 onMounted(() => {
   if (pageRoot.value) pageRoot.value.focus();
+
+  // One-time watcher for initialization on page load/reload.
+  const stopWatcher = watch(selectedImage, (newImg) => {
+    if (newImg) {
+      // As soon as we get the first valid selectedImage,
+      // sync the preview immediately and stop this special watcher.
+      if (loadingTimer.value) clearTimeout(loadingTimer.value);
+      imageForPreview.value = newImg;
+      if (newImg && !newImg.is_dir && newImg.mime?.startsWith('image/')) {
+        isLoading.value = true;
+      }
+      stopWatcher(); // Unregister this watcher after it runs once.
+    }
+  }, { immediate: true }); // Run immediately in case the value is already present.
 });
 </script>
 
@@ -267,11 +339,29 @@ onMounted(() => {
 }
 
 .preview-container {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
+}
+
+.generating-preview {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #F4F7F9; /* Match theme background */
+  z-index: 10;
+  color: #000;
+  font-size: 14px;
+  text-align: center;
+  white-space: normal;
 }
 
 .no-preview {
@@ -284,6 +374,10 @@ onMounted(() => {
   max-height: 98%;
   object-fit: contain;
   transition: transform 0.2s ease-out;
+}
+
+.large-image.is-loading {
+  visibility: hidden;
 }
 
 .preview-toolbar {
@@ -383,22 +477,39 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  background: white;
+  background-color: #FFF; /* XP uses a white background */
   border: 1px solid #ACA899;
+  position: relative; /* For stacking context */
+}
+
+.thumb-placeholder-layer {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 64px;
+  color: #888;
 }
 
 .thumb-image {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+  background-color: white; /* Cover the loading background once loaded */
+  position: relative;
+  z-index: 1;
+  visibility: hidden; /* Hide until loaded */
 }
 
-.thumb-folder-icon {
-  font-size: 64px;
+.thumb-image.is-loaded {
+  visibility: visible;
 }
 
+.thumb-loading-icon,
+.thumb-folder-icon,
 .thumb-file-icon {
-  font-size: 64px;
+  /* These can share styles if they are just for the icon */
 }
 
 .thumb-name {
