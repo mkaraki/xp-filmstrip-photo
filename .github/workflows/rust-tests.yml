@@ -2,7 +2,7 @@ name: Rust Tests & Coverage
 
 on:
   push:
-    branches: [ master, add-tests ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 
