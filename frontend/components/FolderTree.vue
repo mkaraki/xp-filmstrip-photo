@@ -39,8 +39,7 @@ const loading = ref(false);
 const children = ref([]);
 
 const currentPath = computed(() => {
-  const slug = route.params.slug;
-  return Array.isArray(slug) ? slug.join('/') : (slug || '');
+  return routeSlugPath(route.params.slug);
 });
 
 const isActive = computed(() => {

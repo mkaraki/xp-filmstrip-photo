@@ -96,8 +96,7 @@ const expanded = ref({
 });
 
 const currentPath = computed(() => {
-  const slug = route.params.slug;
-  return Array.isArray(slug) ? slug.join('/') : (slug || '');
+  return routeSlugPath(route.params.slug);
 });
 
 const hasImages = computed(() => currentItems.value.some(i => !i.is_dir && i.mime?.startsWith('image/')));

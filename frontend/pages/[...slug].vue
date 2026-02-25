@@ -21,8 +21,7 @@ const { fetchApi } = useApiFetch();
 const route = useRoute();
 
 const currentPath = computed(() => {
-  const slug = route.params.slug;
-  return Array.isArray(slug) ? slug.join('/') : (slug || '');
+  return routeSlugPath(route.params.slug);
 });
 
 const loading = ref(true);

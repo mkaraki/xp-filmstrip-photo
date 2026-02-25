@@ -221,14 +221,12 @@ const canGoBack = computed(() => currentIndex.value > 0);
 const canGoForward = computed(() => currentIndex.value < historyStack.value.length - 1);
 
 const isRoot = computed(() => {
-  const slug = route.params.slug;
-  const p = Array.isArray(slug) ? slug.join('/') : (slug || '');
+  const p = routeSlugPath(route.params.slug);
   return p === '';
 });
 
 const pageTitle = computed(() => {
-  const slug = route.params.slug;
-  const p = Array.isArray(slug) ? slug.join('/') : (slug || '');
+  const p = routeSlugPath(route.params.slug);
   if (!p || p === '/') return t('explorer.root');
   const segments = p.split('/').filter(Boolean);
   return segments[segments.length - 1];
@@ -328,8 +326,7 @@ const goForward = () => {
 };
 
 const goUp = () => {
-  const slug = route.params.slug;
-  const currentPath = Array.isArray(slug) ? slug.join('/') : (slug || '');
+  const currentPath = routeSlugPath(route.params.slug);
   if (!currentPath) return;
   const segments = currentPath.split('/').filter(Boolean);
   segments.pop();
