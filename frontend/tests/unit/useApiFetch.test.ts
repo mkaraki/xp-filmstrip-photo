@@ -46,6 +46,20 @@ describe("useApiFetch", () => {
     expect(requestedUrl).toBe("/images/a.png");
   });
 
+  it("normalizes trailing slash before appending .json for internal API paths", async () => {
+    let requestedUrl = "";
+
+    (globalThis as any).fetch = async (url: string) => {
+      requestedUrl = url;
+      return { status: 200, ok: true };
+    };
+
+    const { fetchApi } = useApiFetch();
+    await fetchApi("/.__api/list/foo/");
+
+    expect(requestedUrl).toBe("/.__api/list/foo.json");
+  });
+
   it("opens login dialog on 401 and reloads after storage auth update", async () => {
     let openCalls = 0;
     let reloadCalls = 0;

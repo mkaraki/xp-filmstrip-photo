@@ -11,8 +11,7 @@ const route = useRoute();
 const router = useRouter();
 
 const currentPath = computed(() => {
-  const slug = route.params.slug;
-  return Array.isArray(slug) ? slug.join('/') : (slug || '');
+  return routeSlugPath(route.params.slug);
 });
 
 onMounted(async () => {
