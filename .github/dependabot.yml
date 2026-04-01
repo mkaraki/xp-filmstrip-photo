@@ -6,6 +6,10 @@ updates:
       interval: "monthly"
     assignees:
       - "mkaraki"
+    groups:
+      cargo-all:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/frontend"
@@ -13,6 +17,10 @@ updates:
       interval: "monthly"
     assignees:
       - "mkaraki"
+    groups:
+      npm-all:
+        patterns:
+          - "*"
 
   - package-ecosystem: "npm"
     directory: "/static-generator"
@@ -20,6 +28,10 @@ updates:
       interval: "monthly"
     assignees:
       - "mkaraki"
+    groups:
+      static-npm-all:
+        patterns:
+          - "*"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -27,3 +39,7 @@ updates:
       interval: "monthly"
     assignees:
       - "mkaraki"
+    groups:
+      actions-all:
+        patterns:
+          - "*"
