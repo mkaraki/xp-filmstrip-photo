@@ -11,7 +11,7 @@ bcrypt = "0.18.0"
 dotenv = "0.15.0"
 fast_image_resize = "6.0.0"
 httpdate = "1.0.3"
-image = "0.25.9"
+image = "0.25.10"
 mime_guess = "2.0.5"
 percent-encoding = "2.3.2"
 serde = { version = "1.0.228", features = ["derive"] }
